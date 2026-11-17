@@ -65,3 +65,7 @@ C# and Avalonia, the same as Cadence, compiled ahead of time to one native exe t
 | `src\Natives.cs` | Unpacking Skia and HarfBuzz |
 
 Signing: see [SIGNING.md](SIGNING.md).
+
+## License
+
+GPL 3, the same as Bradley's Music Tool. See [LICENSE](LICENSE).
