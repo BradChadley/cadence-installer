@@ -1,0 +1,134 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Get Bradley's apps, sketch 2</title>
+<style>
+  :root { --canvas:#0f0f11; --card:#16161a; --rule:#26262c; --text:#e2e0e6; --soft:#a09ca8; --meta:#8b8794; --accent:#c38a9b; --accent2:#d9a3bb; --green:#86d3a3; --red:#ec8e8e; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:#070708; color:var(--text); font-family:"Segoe UI Variable Display","Segoe UI",sans-serif; padding:30px; }
+  .grid { display:grid; grid-template-columns: repeat(2, 600px); gap:30px 34px; justify-content:center; }
+  .label { color:var(--meta); font-size:12px; margin:0 0 9px 2px; letter-spacing:.12em; text-transform:uppercase; }
+  .win { width:600px; height:500px; border-radius:12px; position:relative; overflow:hidden;
+         background: radial-gradient(520px 260px at 50% -60px, rgba(195,138,155,.20), rgba(195,138,155,0) 70%), var(--canvas);
+         box-shadow: 0 0 0 1px #1f1f24, 0 24px 60px rgba(0,0,0,.55); }
+  .bar { height:34px; display:flex; justify-content:flex-end; align-items:center; padding-right:16px; color:#6b6873; font-size:13px; gap:22px; }
+  .body { display:flex; flex-direction:column; align-items:center; padding:4px 44px 0; }
+  h1 { font-weight:300; font-size:36px; margin:4px 0 6px; color:#f4f1f6; letter-spacing:-.01em; }
+  .sub { color:var(--soft); font-size:14px; margin:0 0 24px; }
+  .card { width:100%; background:linear-gradient(180deg,#19191d,#151518); border:1px solid var(--rule); border-radius:14px; padding:16px 18px 18px; margin-bottom:12px; display:flex; gap:16px; align-items:center; position:relative; overflow:hidden; }
+  .card.picked { border-color:rgba(195,138,155,.55); background:linear-gradient(180deg,#1d181c,#161417); box-shadow: 0 0 24px rgba(195,138,155,.08) inset; }
+  .card.off img { filter:saturate(.3); opacity:.55; }
+  .card img { width:46px; height:46px; flex:none; }
+  .text { flex:1; min-width:0; }
+  .name { font-size:18px; color:#f4f1f6; font-weight:400; }
+  .desc { font-size:13px; color:var(--soft); margin-top:3px; line-height:1.4; }
+  .meta { font-size:12.5px; color:var(--meta); margin-top:7px; }
+  .meta a, .status a { color:var(--accent2); text-decoration:none; margin-left:12px; }
+  .mark { width:22px; height:22px; border-radius:50%; border:2px solid #4b4752; flex:none; display:flex; align-items:center; justify-content:center; }
+  .mark.on { border-color:var(--accent); background:var(--accent); box-shadow:0 0 12px rgba(195,138,155,.45); }
+  .mark.on::after { content:""; width:8px; height:8px; border-radius:50%; background:var(--canvas); }
+  .mark.done { border:none; }
+  .line { position:absolute; left:0; right:0; bottom:0; height:2px; background:rgba(255,255,255,.04); }
+  .line i { display:block; height:100%; background:linear-gradient(90deg, rgba(195,138,155,.35), var(--accent2)); position:relative; }
+  .line i::after { content:""; position:absolute; right:-3px; top:-3px; width:8px; height:8px; border-radius:50%; background:#f3d4e1; box-shadow:0 0 10px 3px rgba(217,163,187,.7); }
+  .line.red i { background:linear-gradient(90deg, rgba(236,142,142,.3), var(--red)); }
+  .line.red i::after { display:none; }
+  .status { font-size:12.5px; margin-top:7px; color:var(--soft); display:flex; justify-content:space-between; }
+  .ok { color:var(--green); } .err { color:var(--red); }
+  .go { margin-top:12px; font-family:inherit; font-size:21px; font-weight:400; letter-spacing:.02em; color:#fff6fa; border:none; border-radius:10px; padding:10px 60px;
+        background:linear-gradient(180deg,#b97e90,#9b6276); box-shadow:0 6px 22px rgba(195,138,155,.28), 0 1px 0 rgba(255,255,255,.18) inset; }
+  .go.dim { background:#26242a; color:#8d8794; box-shadow:none; }
+  .go.quiet { background:transparent; color:var(--soft); box-shadow:none; font-size:17px; }
+  .foot { margin-top:12px; font-size:12px; color:var(--meta); }
+  .note { max-width:1240px; margin:32px auto 0; color:var(--soft); font-size:14px; line-height:1.6; }
+  .note b { color:var(--text); font-weight:600; }
+</style></head>
+<body>
+<div class="grid">
+
+<div><p class="label">1. Opened on a new PC</p>
+<div class="win"><div class="bar">&#8212;&nbsp;&nbsp;&#10005;</div><div class="body">
+  <h1>Bradley's apps</h1><p class="sub">Pick what you'd like. Each one keeps itself up to date.</p>
+  <div class="card picked"><img src="cadence.ico"><div class="text"><div class="name">Cadence</div>
+    <div class="desc">A music player for your own collection. Brings your MusicBee library over and scrobbles to Last.fm.</div>
+    <div class="meta">Version 0.26.8, 98 MB</div></div><div class="mark on"></div></div>
+  <div class="card picked"><img src="bradleys-music-tool.ico"><div class="text"><div class="name">Bradley's Music Tool</div>
+    <div class="desc">Finds music you'll like, gets and files albums for you, and repairs damaged files in your library.</div>
+    <div class="meta">Version 1.0.4, 9 MB</div></div><div class="mark on"></div></div>
+  <button class="go">Install</button>
+  <div class="foot">No admin rights needed.</div>
+</div></div></div>
+
+<div><p class="label">2. Already on this PC</p>
+<div class="win"><div class="bar">&#8212;&nbsp;&nbsp;&#10005;</div><div class="body">
+  <h1>Bradley's apps</h1><p class="sub">Pick what you'd like. Each one keeps itself up to date.</p>
+  <div class="card off"><img src="cadence.ico"><div class="text"><div class="name">Cadence</div>
+    <div class="desc">A music player for your own collection. Brings your MusicBee library over and scrobbles to Last.fm.</div>
+    <div class="meta">On this PC, version 0.26.8, the newest.</div></div><div class="mark"></div></div>
+  <div class="card off"><img src="bradleys-music-tool.ico"><div class="text"><div class="name">Bradley's Music Tool</div>
+    <div class="desc">Finds music you'll like, gets and files albums for you, and repairs damaged files in your library.</div>
+    <div class="meta">On this PC in Documents, version 1.0.3. It will update itself.</div></div><div class="mark"></div></div>
+  <button class="go dim">Install</button>
+  <div class="foot">Pick one to install the newest version over it.</div>
+</div></div></div>
+
+<div><p class="label">3. Installing (both download at once)</p>
+<div class="win"><div class="bar">&#8212;&nbsp;&nbsp;&#10005;</div><div class="body">
+  <h1>Installing</h1><p class="sub">You can keep using your PC. This takes about a minute.</p>
+  <div class="card picked"><img src="cadence.ico"><div class="text"><div class="name">Cadence</div>
+    <div class="desc">A music player for your own collection. Brings your MusicBee library over and scrobbles to Last.fm.</div>
+    <div class="status"><span>Downloading</span><span>41 of 98 MB</span></div></div><div class="line"><i style="width:42%"></i></div></div>
+  <div class="card picked"><img src="bradleys-music-tool.ico"><div class="text"><div class="name">Bradley's Music Tool</div>
+    <div class="desc">Finds music you'll like, gets and files albums for you, and repairs damaged files in your library.</div>
+    <div class="status ok"><span>Installed, version 1.0.4<a>Open</a></span></div></div>
+    <div class="mark done"><svg width="22" height="22" viewBox="0 0 22 22"><path d="M5 11.5l4 4 8.5-9.5" fill="none" stroke="#86d3a3" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+  <button class="go dim" style="visibility:hidden">Install</button>
+  <div class="foot">&nbsp;</div>
+</div></div></div>
+
+<div><p class="label">4. Done</p>
+<div class="win"><div class="bar">&#8212;&nbsp;&nbsp;&#10005;</div><div class="body">
+  <h1>All set</h1><p class="sub">You'll find both in your Start menu.</p>
+  <div class="card"><img src="cadence.ico"><div class="text"><div class="name">Cadence</div>
+    <div class="desc">A music player for your own collection. Brings your MusicBee library over and scrobbles to Last.fm.</div>
+    <div class="status ok"><span>Installed, version 0.26.8<a>Open</a></span></div></div>
+    <div class="mark done"><svg width="22" height="22" viewBox="0 0 22 22"><path d="M5 11.5l4 4 8.5-9.5" fill="none" stroke="#86d3a3" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+  <div class="card"><img src="bradleys-music-tool.ico"><div class="text"><div class="name">Bradley's Music Tool</div>
+    <div class="desc">Finds music you'll like, gets and files albums for you, and repairs damaged files in your library.</div>
+    <div class="status ok"><span>Installed, version 1.0.4<a>Open</a></span></div></div>
+    <div class="mark done"><svg width="22" height="22" viewBox="0 0 22 22"><path d="M5 11.5l4 4 8.5-9.5" fill="none" stroke="#86d3a3" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+  <button class="go">Close</button>
+  <div class="foot">&nbsp;</div>
+</div></div></div>
+
+<div><p class="label">5. Something went wrong</p>
+<div class="win"><div class="bar">&#8212;&nbsp;&nbsp;&#10005;</div><div class="body">
+  <h1>Almost there</h1><p class="sub">One didn't finish. The other is installed.</p>
+  <div class="card"><img src="cadence.ico"><div class="text"><div class="name">Cadence</div>
+    <div class="desc">A music player for your own collection. Brings your MusicBee library over and scrobbles to Last.fm.</div>
+    <div class="status err"><span>The connection dropped at 63%.<a>Try again</a></span></div></div><div class="line red"><i style="width:63%"></i></div><div class="mark on"></div></div>
+  <div class="card"><img src="bradleys-music-tool.ico"><div class="text"><div class="name">Bradley's Music Tool</div>
+    <div class="desc">Finds music you'll like, gets and files albums for you, and repairs damaged files in your library.</div>
+    <div class="status ok"><span>Installed, version 1.0.4<a>Open</a></span></div></div>
+    <div class="mark done"><svg width="22" height="22" viewBox="0 0 22 22"><path d="M5 11.5l4 4 8.5-9.5" fill="none" stroke="#86d3a3" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+  <button class="go quiet">Close</button>
+  <div class="foot">&nbsp;</div>
+</div></div></div>
+
+<div><p class="label">6. An app is open</p>
+<div class="win"><div class="bar">&#8212;&nbsp;&nbsp;&#10005;</div><div class="body">
+  <h1>Bradley's apps</h1><p class="sub">Pick what you'd like. Each one keeps itself up to date.</p>
+  <div class="card picked"><img src="cadence.ico"><div class="text"><div class="name">Cadence</div>
+    <div class="desc">A music player for your own collection. Brings your MusicBee library over and scrobbles to Last.fm.</div>
+    <div class="status" style="color:#e3c08a"><span>Close Cadence first, then click Install.</span></div></div><div class="mark on"></div></div>
+  <div class="card picked"><img src="bradleys-music-tool.ico"><div class="text"><div class="name">Bradley's Music Tool</div>
+    <div class="desc">Finds music you'll like, gets and files albums for you, and repairs damaged files in your library.</div>
+    <div class="meta">Version 1.0.4, 9 MB</div></div><div class="mark on"></div></div>
+  <button class="go">Install</button>
+  <div class="foot">&nbsp;</div>
+</div></div></div>
+
+</div>
+<div class="note">
+<b>Motion, all quick (under a quarter second), nothing that slows a click:</b> the glow at the top breathes very slowly; a card lifts slightly under the pointer and its border warms when picked; the mark fills with a short spring; the line's lit head glides as bytes arrive; a finished card's check draws itself in one stroke; the heading cross-fades to "Installing" and "All set". The window opens at once, centered, and the newest versions load in behind it (the version lines fade in when GitHub answers).<br>
+<b>Changed from sketch 1:</b> real app icons; the round mark moved to the right; the public descriptions; both downloads run at once, installs one after the other; a Music Tool unpacked somewhere else is found and not installed twice; an open app is named before anything starts; the error screen has no dead button; brighter small text.
+</div>
+</body></html>

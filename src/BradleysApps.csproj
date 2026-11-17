@@ -1,0 +1,73 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>GetBradleysApps</AssemblyName>
+    <RootNamespace>BradleysApps</RootNamespace>
+    <Product>Get Bradley's apps</Product>
+    <AssemblyTitle>Get Bradley's apps</AssemblyTitle>
+    <Company>BradChadley</Company>
+    <Version>1.0.0</Version>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets/chooser.ico</ApplicationIcon>
+    <Deterministic>true</Deterministic>
+    <!-- One native file, no .NET needed on the PC, starts at once (build.ps1 publishes it). -->
+    <PublishAot>true</PublishAot>
+    <OptimizationPreference>Size</OptimizationPreference>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <StackTraceSupport>true</StackTraceSupport>
+    <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- only the file's name in the exe, never this PC's folders -->
+    <LinkerArg Include="/PDBALTPATH:%_PDB%" />
+  </ItemGroup>
+
+  <!--
+    One file: the native build cannot take in Skia's and HarfBuzz's DLLs, so they ride inside the exe, compressed, and
+    Natives.cs unpacks them once into a temp folder at start. ANGLE (GPU drawing) is left out: the window draws in
+    software, which no graphics driver can break.
+  -->
+  <UsingTask TaskName="Squeeze" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <From ParameterType="System.String" Required="true" />
+      <To ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.IO.Compression" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        Directory.CreateDirectory(Path.GetDirectoryName(To));
+        if (!File.Exists(To) || File.GetLastWriteTimeUtc(To) < File.GetLastWriteTimeUtc(From))
+        {
+            using (var i = File.OpenRead(From))
+            using (var o = File.Create(To))
+            using (var z = new DeflateStream(o, CompressionLevel.Optimal)) i.CopyTo(z);
+        }
+      ]]></Code>
+    </Task>
+  </UsingTask>
+  <Target Name="EmbedNatives" DependsOnTargets="ResolvePackageAssets" BeforeTargets="PrepareForBuild" Condition="'$(PublishAot)' == 'true'">
+    <ItemGroup>
+      <_Native Include="@(NativeCopyLocalItems)" Condition="'%(Filename)%(Extension)' == 'libSkiaSharp.dll' or '%(Filename)%(Extension)' == 'libHarfBuzzSharp.dll'" />
+    </ItemGroup>
+    <Error Condition="'@(_Native)' == ''" Text="Skia and HarfBuzz were not found among the package files." />
+    <Squeeze From="%(_Native.FullPath)" To="$(IntermediateOutputPath)native\%(_Native.Filename)%(_Native.Extension).z" />
+    <ItemGroup>
+      <EmbeddedResource Include="$(IntermediateOutputPath)native\%(_Native.Filename)%(_Native.Extension).z" LogicalName="native/%(_Native.Filename)%(_Native.Extension)" />
+    </ItemGroup>
+  </Target>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets/*.png" />
+    <AvaloniaResource Include="Assets/chooser.ico" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.6" />
+    <PackageReference Include="Avalonia.Themes.Simple" Version="12.1.6" />
+  </ItemGroup>
+</Project>

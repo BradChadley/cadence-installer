@@ -1,0 +1,89 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Get Bradley's apps, sketch</title>
+<style>
+  :root { --canvas:#111113; --card:#18181b; --rule:#2b2b30; --text:#dcdce2; --soft:#92929c; --faint:#5f5f68; --accent:#c38a9b; --green:#7fc79a; --red:#e08a8a; }
+  body { margin:0; background:#0a0a0b; color:var(--text); font-family:"Segoe UI",sans-serif; padding:28px; }
+  .grid { display:grid; grid-template-columns: repeat(2, 560px); gap:28px 32px; justify-content:center; }
+  .label { color:var(--soft); font-size:13px; margin:0 0 8px 2px; letter-spacing:.06em; text-transform:uppercase; }
+  .win { width:560px; height:470px; background:var(--canvas); border:1px solid #232327; border-radius:8px; box-sizing:border-box; position:relative; overflow:hidden; }
+  .bar { height:30px; display:flex; justify-content:flex-end; align-items:center; padding-right:14px; color:var(--faint); font-size:12px; gap:18px; }
+  .body { display:flex; flex-direction:column; align-items:center; padding:6px 40px 0; }
+  h1 { font-weight:300; font-size:32px; margin:6px 0 4px; color:#f0eef2; }
+  .sub { color:var(--soft); font-size:14px; margin:0 0 22px; }
+  .card { width:100%; background:var(--card); border:1px solid var(--rule); border-radius:10px; padding:16px 18px 14px; box-sizing:border-box; margin-bottom:12px; display:flex; gap:14px; align-items:flex-start; position:relative; }
+  .mark { width:20px; height:20px; border-radius:50%; border:2px solid #4a4652; box-sizing:border-box; flex:none; margin-top:2px; display:flex; align-items:center; justify-content:center; }
+  .mark.on { border-color:var(--accent); background:var(--accent); }
+  .mark.on::after { content:""; width:8px; height:8px; border-radius:50%; background:var(--canvas); }
+  .mark.done { border:none; background:none; }
+  .name { font-size:17px; color:#f0eef2; }
+  .desc { font-size:13px; color:var(--soft); margin-top:3px; line-height:1.4; }
+  .meta { font-size:12px; color:var(--faint); margin-top:6px; }
+  .line { position:absolute; left:18px; right:18px; bottom:7px; height:2px; background:#26252b; border-radius:1px; }
+  .line i { display:block; height:100%; background:var(--accent); border-radius:1px; }
+  .status { font-size:12px; margin-top:6px; color:var(--soft); }
+  .ok { color:var(--green); }
+  .err { color:var(--red); }
+  a { color:var(--accent); text-decoration:none; margin-left:10px; }
+  .go { margin-top:10px; font-size:22px; font-weight:400; color:#f5f0f7; background:#4d3540; border:none; border-radius:8px; padding:9px 46px; }
+  .go.dim { background:#2e2c33; color:#88818d; }
+  .quiet { margin-top:14px; color:var(--soft); font-size:14px; }
+  .note { max-width:1152px; margin:30px auto 0; color:var(--soft); font-size:14px; line-height:1.55; }
+  .note b { color:var(--text); font-weight:600; }
+</style></head>
+<body>
+<div class="grid">
+
+<div><p class="label">1. Opened (Cadence already here)</p>
+<div class="win"><div class="bar">&#8212;&nbsp;&nbsp;&#10005;</div><div class="body">
+  <h1>Bradley's apps</h1><p class="sub">Pick what you'd like. Each one keeps itself up to date.</p>
+  <div class="card"><div class="mark"></div><div><div class="name">Cadence</div>
+    <div class="desc">A music player for your own library: lyrics, playlists, and a mix that follows your day.</div>
+    <div class="meta">On this PC, version 0.26.8. It keeps itself up to date.</div></div></div>
+  <div class="card"><div class="mark on"></div><div><div class="name">Bradley's Music Tool</div>
+    <div class="desc">Finds music you'll like, gets and files albums for you, and checks your library for damaged files.</div>
+    <div class="meta">Version 1.0.4, a 9 MB download</div></div></div>
+  <button class="go">Install</button>
+</div></div></div>
+
+<div><p class="label">2. Installing</p>
+<div class="win"><div class="bar">&#8212;&nbsp;&nbsp;&#10005;</div><div class="body">
+  <h1>Bradley's apps</h1><p class="sub">Pick what you'd like. Each one keeps itself up to date.</p>
+  <div class="card"><div class="mark on"></div><div><div class="name">Cadence</div>
+    <div class="desc">A music player for your own library: lyrics, playlists, and a mix that follows your day.</div>
+    <div class="status">Downloading, 41 of 98 MB</div></div><div class="line"><i style="width:42%"></i></div></div>
+  <div class="card"><div class="mark on"></div><div><div class="name">Bradley's Music Tool</div>
+    <div class="desc">Finds music you'll like, gets and files albums for you, and checks your library for damaged files.</div>
+    <div class="status">Waiting for Cadence</div></div><div class="line"><i style="width:0%"></i></div></div>
+  <button class="go dim">Installing</button>
+</div></div></div>
+
+<div><p class="label">3. Done</p>
+<div class="win"><div class="bar">&#8212;&nbsp;&nbsp;&#10005;</div><div class="body">
+  <h1>All set</h1><p class="sub">Both are in your Start menu and on your desktop.</p>
+  <div class="card"><div class="mark done"><svg width="20" height="20" viewBox="0 0 20 20"><path d="M4 10.5l4 4 8-9" fill="none" stroke="#7fc79a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div><div class="name">Cadence</div>
+    <div class="desc">A music player for your own library: lyrics, playlists, and a mix that follows your day.</div>
+    <div class="status ok">Installed, version 0.26.8<a>Open Cadence</a></div></div></div>
+  <div class="card"><div class="mark done"><svg width="20" height="20" viewBox="0 0 20 20"><path d="M4 10.5l4 4 8-9" fill="none" stroke="#7fc79a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div><div class="name">Bradley's Music Tool</div>
+    <div class="desc">Finds music you'll like, gets and files albums for you, and checks your library for damaged files.</div>
+    <div class="status ok">Installed, version 1.0.4<a>Open the Music Tool</a></div></div></div>
+  <button class="go">Close</button>
+</div></div></div>
+
+<div><p class="label">4. Something went wrong</p>
+<div class="win"><div class="bar">&#8212;&nbsp;&nbsp;&#10005;</div><div class="body">
+  <h1>Bradley's apps</h1><p class="sub">Pick what you'd like. Each one keeps itself up to date.</p>
+  <div class="card"><div class="mark done"><svg width="20" height="20" viewBox="0 0 20 20"><path d="M4 10.5l4 4 8-9" fill="none" stroke="#7fc79a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div><div class="name">Cadence</div>
+    <div class="desc">A music player for your own library: lyrics, playlists, and a mix that follows your day.</div>
+    <div class="status ok">Installed, version 0.26.8<a>Open Cadence</a></div></div></div>
+  <div class="card"><div class="mark on"></div><div><div class="name">Bradley's Music Tool</div>
+    <div class="desc">Finds music you'll like, gets and files albums for you, and checks your library for damaged files.</div>
+    <div class="status err">The download stopped: GitHub could not be reached.<a>Try again</a></div></div><div class="line"><i style="width:63%;background:#e08a8a"></i></div></div>
+  <button class="go dim">Install</button>
+</div></div></div>
+
+</div>
+<div class="note">
+<b>How it works:</b> each download is checked before anything runs (Cadence against the checksum GitHub and its own SHA256SUMS list give; the Music Tool against GitHub's checksum and the signature its own updater trusts). Cadence runs its own installer quietly. The Music Tool has no installer, so this puts it where yours lives, %LOCALAPPDATA%\Programs\Bradley's Music Tool, with a Start menu and a desktop shortcut. No admin rights for either. A file of about 20 MB that never needs updating: it always asks GitHub for the newest release.<br>
+<b>Already installed:</b> the card says so and starts unpicked, since both apps update themselves. Picking it anyway installs the newest version over it.
+</div>
+</body></html>
