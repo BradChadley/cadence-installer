@@ -51,6 +51,12 @@ public abstract class App
     protected abstract Installed? Detect();
     public abstract bool IsRunning();
 
+    /// <summary>
+    /// What is wrong with the copy on this PC, in a few plain words ("some of its files are missing"), or null when it
+    /// is whole (or there is none). Only what can be told for sure: a doubt counts as whole, never as damage.
+    /// </summary>
+    public virtual Task<string?> Damage(CancellationToken ct) => Task.FromResult<string?>(null);
+
     /// <summary>Fetches and checks the newest release into <paramref name="work"/>; installs it unless <paramref name="testRun"/>.</summary>
     public abstract Task<string> Install(string work, IReport report, bool testRun, CancellationToken ct);
 
@@ -111,16 +117,82 @@ public sealed class Cadence : App
             var remove = key.GetValue("UninstallString") as string ?? "";
             if (!(name.Equals("Cadence", StringComparison.OrdinalIgnoreCase) || (shown == "Cadence" && remove.Contains("Update.exe", StringComparison.OrdinalIgnoreCase)))) continue;
             if (key.GetValue("InstallLocation") is not string folder || !Directory.Exists(folder)) continue;
+            // an entry in Apps and its folder are enough to count as installed, even with files gone: that is a repair
             var exe = Path.Combine(folder, "Cadence.exe");
             if (!File.Exists(exe)) exe = Path.Combine(folder, "current", "Cadence.exe");
-            if (!File.Exists(exe)) continue;
-            var version = key.GetValue("DisplayVersion") as string ?? ProductVersion(Path.Combine(folder, "current", "Cadence.exe"));
+            var version = Velopack(folder).Version ?? key.GetValue("DisplayVersion") as string ?? ProductVersion(Path.Combine(folder, "current", "Cadence.exe"));
             return new Installed(version, exe, folder);
         }
         // installed without an entry in Apps (should not happen with Velopack, but costs nothing to look)
         var standard = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Cadence");
         var current = Path.Combine(standard, "current", "Cadence.exe");
-        return File.Exists(current) ? new Installed(ProductVersion(current), File.Exists(Path.Combine(standard, "Cadence.exe")) ? Path.Combine(standard, "Cadence.exe") : current, standard) : null;
+        return File.Exists(current) ? new Installed(Velopack(standard).Version ?? ProductVersion(current), File.Exists(Path.Combine(standard, "Cadence.exe")) ? Path.Combine(standard, "Cadence.exe") : current, standard) : null;
+    }
+
+    /// <summary>The version and main program Velopack recorded in current\sq.version when it installed (null if unreadable).</summary>
+    static (string? Version, string? MainExe) Velopack(string folder)
+    {
+        try
+        {
+            // two plain fields of a small file: read as text (an XML library would add a megabyte to this exe)
+            var text = File.ReadAllText(Path.Combine(folder, "current", "sq.version"));
+            string? Read(string n)
+            {
+                var start = text.IndexOf($"<{n}>", StringComparison.Ordinal);
+                if (start < 0) return null;
+                start += n.Length + 2;
+                var end = text.IndexOf('<', start);
+                var value = end < 0 ? "" : System.Net.WebUtility.HtmlDecode(text[start..end]).Trim();
+                return value.Length > 0 ? value : null;
+            }
+            return (Read("version"), Read("mainExe"));
+        }
+        catch { return (null, null); }
+    }
+
+    public override Task<string?> Damage(CancellationToken ct) =>
+        Task.FromResult(Here is { } h ? Health(h.Folder) : null);
+
+    /// <summary>
+    /// Checks a Velopack install of Cadence at <paramref name="folder"/>: Velopack's own pieces (Update.exe, the
+    /// launcher, current\sq.version, the program it names) and every library Cadence's .deps.json lists. Null when whole.
+    /// </summary>
+    public static string? Health(string folder)
+    {
+        var missing = new List<string>();
+        void Need(string relative) { if (!File.Exists(Path.Combine(folder, relative))) missing.Add(relative); }
+        var current = Path.Combine(folder, "current");
+        Need("Update.exe");
+        Need(Path.Combine("current", "sq.version"));
+        var main = Velopack(folder).MainExe ?? "Cadence.exe";
+        Need(main);                                  // the launcher the shortcuts open
+        Need(Path.Combine("current", main));         // the program itself
+        // every library the program says it loads (only when the list is there: a build without one is not damage)
+        var deps = Path.Combine(current, Path.ChangeExtension(main, ".deps.json"));
+        if (File.Exists(deps))
+        {
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllBytes(deps));
+                var root = doc.RootElement;
+                var target = root.GetProperty("runtimeTarget").GetProperty("name").GetString()!;
+                foreach (var lib in root.GetProperty("targets").GetProperty(target).EnumerateObject())
+                    foreach (var kind in new[] { "runtime", "native" })
+                        if (lib.Value.TryGetProperty(kind, out var files))
+                            foreach (var f in files.EnumerateObject())
+                            {
+                                // only the libraries it loads: the list also names debug files and tools a build leaves out on purpose
+                                if (!f.Name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)) continue;
+                                var rel = f.Name.Replace('/', Path.DirectorySeparatorChar);
+                                if (!File.Exists(Path.Combine(current, rel)) && !File.Exists(Path.Combine(current, Path.GetFileName(rel))))
+                                    missing.Add(Path.Combine("current", Path.GetFileName(rel)));
+                            }
+            }
+            catch (Exception e) { Log.Write($"Cadence's library list could not be read ({e.Message}); only its main files were checked"); }
+        }
+        if (missing.Count == 0) return null;
+        Log.Write($"Cadence at {folder} is missing {missing.Count} file(s): {string.Join(", ", missing.Take(12))}{(missing.Count > 12 ? ", ..." : "")}");
+        return "some of its files are missing";
     }
 
     public override bool IsRunning() =>
@@ -227,15 +299,63 @@ public sealed class MusicTool : App
     public override bool IsRunning() =>
         RunningPaths(Path.GetFileNameWithoutExtension(ExeName)).Any(p => p.Length == 0 || (Here != null && p.Equals(Here.Exe, StringComparison.OrdinalIgnoreCase)));
 
+    Task<Manifest>? signed;
+
+    /// <summary>The newest release's signed file list (update.json), read once and kept; read again after a failure.</summary>
+    Task<Manifest> Signed(CancellationToken ct)
+    {
+        if (signed is { IsFaulted: true } or { IsCanceled: true }) signed = null;
+        return signed ??= Read();
+        async Task<Manifest> Read()
+        {
+            var r = await Newest(ct);
+            var listAsset = r.Find(n => n.Equals("update.json", StringComparison.OrdinalIgnoreCase))
+                ?? throw new Problem("The newest Music Tool release doesn't have its signed file list.", retry: false);
+            var listText = await Net.Text(listAsset.Url, ct, most: 64 * 1024) ?? throw new Problem("Couldn't reach GitHub. Check your internet connection.");
+            var m = Manifest.ReadSigned(listText) ?? throw new Problem("The Music Tool download couldn't be confirmed as Bradley's, so it wasn't used.", retry: false);
+            Log.Write($"Music Tool {m.Version}: signed, {m.Size} bytes, SHA-256 {m.Sha256}");
+            return m;
+        }
+    }
+
+    public override async Task<string?> Damage(CancellationToken ct)
+    {
+        if (Here is not { } h) return null;
+        Manifest m;
+        try { m = await Signed(ct); }
+        catch (Exception e) when (e is not OperationCanceledException) { return null; } // cannot tell, so it is not called damaged
+        return await Health(h.Exe, m, ct);
+    }
+
+    /// <summary>
+    /// Whether the copy at <paramref name="exe"/> is damaged. Only what is sure counts: the file gone, too small to be the
+    /// program, its version unreadable, or exactly the signed file's size with other contents (a file spoiled in place).
+    /// Another size under the same version is someone's own build (the author ships builds between releases), not damage.
+    /// </summary>
+    public static async Task<string?> Health(string exe, Manifest m, CancellationToken ct)
+    {
+        if (!File.Exists(exe)) return "its program file is missing";
+        var size = new FileInfo(exe).Length;
+        var version = ProductVersion(exe);
+        if (size < 1024 * 1024 || version == null)
+        {
+            Log.Write($"Music Tool at {exe}: {size} bytes, version {(version ?? "unreadable")}");
+            return "its program file is damaged";
+        }
+        if (version != m.Version || size != m.Size || await Matches(exe, m, ct))
+        {
+            if (version == m.Version && size != m.Size) Log.Write($"Music Tool at {exe} says {m.Version} at {size} bytes, not the released {m.Size}: taken as a build of its own");
+            return null;
+        }
+        Log.Write($"Music Tool at {exe} is the released size but not the signed file (SHA-256 {await Verify.Sha256(exe, ct)})");
+        return "its program file is damaged";
+    }
+
     public override async Task<string> Install(string work, IReport report, bool testRun, CancellationToken ct)
     {
         var r = await Newest(ct);
         // the signed file list first: nothing is fetched for an exe that could not be trusted anyway
-        var listAsset = r.Find(n => n.Equals("update.json", StringComparison.OrdinalIgnoreCase))
-            ?? throw new Problem("The newest Music Tool release doesn't have its signed file list.", retry: false);
-        var listText = await Net.Text(listAsset.Url, ct, most: 64 * 1024) ?? throw new Problem("Couldn't reach GitHub. Check your internet connection.");
-        var m = Manifest.ReadSigned(listText) ?? throw new Problem("The Music Tool download couldn't be confirmed as Bradley's, so it wasn't used.", retry: false);
-        Log.Write($"Music Tool {m.Version}: signed, {m.Size} bytes, SHA-256 {m.Sha256}");
+        var m = await Signed(ct);
 
         var exe = Path.Combine(work, "music-tool", ExeName);
         Directory.CreateDirectory(Path.GetDirectoryName(exe)!);

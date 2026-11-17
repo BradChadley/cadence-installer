@@ -137,3 +137,84 @@ public static class CheckMode
         return bad;
     }
 }
+
+/// <summary>
+/// --health &lt;folder&gt;: the damage checks, against this PC's real installs (they must come out whole: no false alarms)
+/// and against made-up damaged copies built in &lt;folder&gt;. Reads the real installs, never changes them.
+/// </summary>
+public static class HealthTest
+{
+    public static async Task<int> Run(string folder)
+    {
+        var bad = 0;
+        void Expect(bool ok, string what) { Console.WriteLine($"  {(ok ? "ok" : "NOT OK")}: {what}"); if (!ok) bad++; }
+        folder = Path.GetFullPath(folder);
+        if (Directory.Exists(folder)) Directory.Delete(folder, true);
+        Directory.CreateDirectory(folder);
+
+        Console.WriteLine("Cadence");
+        var cadence = new Cadence(); cadence.Look();
+        if (cadence.Here is { } c)
+        {
+            Expect(Cadence.Health(c.Folder) == null, $"the real install at {c.Folder} is whole");
+            // a stand-in: every file name of the real install, empty, plus its real sq.version and .deps.json
+            var fake = Path.Combine(folder, "Cadence");
+            foreach (var f in Directory.EnumerateFiles(c.Folder, "*", SearchOption.AllDirectories))
+            {
+                var rel = Path.GetRelativePath(c.Folder, f);
+                if (rel.StartsWith("packages", StringComparison.OrdinalIgnoreCase)) continue;
+                var to = Path.Combine(fake, rel);
+                Directory.CreateDirectory(Path.GetDirectoryName(to)!);
+                if (rel.EndsWith("sq.version", StringComparison.OrdinalIgnoreCase) || rel.EndsWith(".deps.json", StringComparison.OrdinalIgnoreCase)) File.Copy(f, to);
+                else File.WriteAllBytes(to, []);
+            }
+            Expect(Cadence.Health(fake) == null, "a stand-in with every file is whole");
+            var lib = Path.Combine(fake, "current", "Avalonia.Skia.dll");
+            File.Delete(lib);
+            Expect(Cadence.Health(fake) == "some of its files are missing", "one library gone: missing files");
+            File.WriteAllBytes(lib, []);
+            File.Move(Path.Combine(fake, "Update.exe"), Path.Combine(fake, "Update.exe.x"));
+            Expect(Cadence.Health(fake) != null, "Update.exe gone: missing files");
+            File.Move(Path.Combine(fake, "Update.exe.x"), Path.Combine(fake, "Update.exe"));
+            File.Move(Path.Combine(fake, "Cadence.exe"), Path.Combine(fake, "Cadence.exe.x"));
+            Expect(Cadence.Health(fake) != null, "the launcher the shortcuts open gone: missing files");
+            File.Move(Path.Combine(fake, "Cadence.exe.x"), Path.Combine(fake, "Cadence.exe"));
+            File.Delete(Path.Combine(fake, "current", "Cadence.deps.json"));
+            Expect(Cadence.Health(fake) == null, "no library list (another way of building): not called damage");
+            File.Delete(Path.Combine(fake, "current", "sq.version"));
+            Expect(Cadence.Health(fake) != null, "Velopack's sq.version gone: missing files");
+        }
+        else Console.WriteLine("  (not on this PC: only the made-up copies could be checked, and they are built from a real one)");
+
+        Console.WriteLine("Bradley's Music Tool");
+        var json = await Net.Text("https://github.com/BradChadley/bradleys-music-tool/releases/latest/download/update.json", CancellationToken.None);
+        var m = json == null ? null : Manifest.ReadSigned(json);
+        if (m == null) { Console.WriteLine("  NOT OK: the signed file list could not be read"); return bad + 1; }
+        var tool = new MusicTool(); tool.Look();
+        if (tool.Here is { } t)
+        {
+            Expect(await MusicTool.Health(t.Exe, m, CancellationToken.None) == null, $"the real install at {t.Exe} is whole");
+            var copy = Path.Combine(folder, "tool", "bradleys-music-tool.exe");
+            Directory.CreateDirectory(Path.GetDirectoryName(copy)!);
+            async Task<string?> Check() => await MusicTool.Health(copy, m, CancellationToken.None);
+            File.Copy(t.Exe, copy);
+            var same = new FileInfo(copy).Length == m.Size;
+            Expect(await Check() == null, "a copy of it is whole");
+            if (same)
+            {
+                using (var s = File.Open(copy, FileMode.Open)) { s.Position = s.Length / 2; var b = s.ReadByte(); s.Position = s.Length / 2; s.WriteByte((byte)(b ^ 0xFF)); }
+                Expect(await Check() == "its program file is damaged", "one byte spoiled in place: damaged");
+            }
+            File.Copy(t.Exe, copy, true);
+            using (var s = File.Open(copy, FileMode.Append)) s.Write(new byte[4096]);
+            Expect(await Check() == null, "same version, another size (a build of his own): not called damage");
+            using (var s = File.Open(copy, FileMode.Open)) s.SetLength(200_000);
+            Expect(await Check() == "its program file is damaged", "cut short: damaged");
+            File.Delete(copy);
+            Expect(await Check() == "its program file is missing", "gone: missing");
+        }
+        else Console.WriteLine("  (not on this PC: nothing to check)");
+        Console.WriteLine(bad == 0 ? "All good." : $"{bad} not as expected.");
+        return bad == 0 ? 0 : 1;
+    }
+}

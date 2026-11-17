@@ -48,6 +48,19 @@ static class Shot
                 cadence.Failed("The connection dropped.", false, ("Try again", None), ("Download page", None));
                 tool.Done("Installed, version 1.0.4", ("Open", None));
                 break;
+            case "damaged":
+                cadence.SetPicked(true); tool.SetPicked(false);
+                cadence.Say("On this PC, but some of its files are missing. Install repairs it.", Ink.Amber);
+                tool.Say("On this PC, version 1.0.4, the newest.");
+                break;
+            case "repaired":
+                tool.SetPicked(false);
+                w.SetHeading("All set", "You'll find it in your Start menu.");
+                w.SetButton("Close", None); w.SetFoot("");
+                foreach (var c in cards) c.Lock(true);
+                tool.Opacity = 0.45; tool.Say("On this PC, version 1.0.4, the newest.");
+                cadence.Done("Repaired, version 0.26.8", ("Open", None));
+                break;
             case "open":
                 cadence.Say("Close Cadence first, then click Install.", Ink.Amber); tool.Say("Version 1.0.4, 9 MB");
                 break;

@@ -9,6 +9,7 @@ public static class Program
 {
     /// <summary>
     /// --test-run &lt;folder&gt;   the window as usual, but each app is only downloaded and checked into the folder, never installed
+    /// --health &lt;folder&gt;     no window: the damage checks, on this PC's installs (read only) and on made-up damaged copies
     /// --test-run &lt;folder&gt; --auto   the same, and Install is pressed by itself
     /// --check &lt;folder&gt;      no window: downloads and checks both apps into the folder, prints what it found (exit 0 = all good)
     ///   --no-api             (with --check) reads the releases the way used when GitHub's API is busy
@@ -22,6 +23,8 @@ public static class Program
         var at = Array.IndexOf(args, "--check");
         if (at >= 0 && at + 1 < args.Length)
             return CheckMode.Run(args[at + 1], args.Contains("--no-api"), args.Contains("--tamper")).GetAwaiter().GetResult();
+        var health = Array.IndexOf(args, "--health");
+        if (health >= 0 && health + 1 < args.Length) return HealthTest.Run(args[health + 1]).GetAwaiter().GetResult();
         var test = Array.IndexOf(args, "--test-run");
         if (test >= 0 && test + 1 < args.Length) Options.TestFolder = Path.GetFullPath(args[test + 1]);
         var shot = Array.IndexOf(args, "--shot");

@@ -44,6 +44,8 @@ sealed class Card : Border, IReport
     public readonly App App;
     public bool Picked { get; private set; }
     public bool Locked;
+    /// <summary>The copy on this PC was found damaged: the end says "Repaired".</summary>
+    public bool Damaged;
     public event Action? Changed;
 
     readonly Image picture = new() { Width = 46, Height = 46, VerticalAlignment = VerticalAlignment.Center };
@@ -515,7 +517,16 @@ public sealed class MainWindow : Window
             {
                 var where = Where(h.Folder);
                 var at = where == null ? "On this PC" : $"On this PC in {where}";
-                c.Say(h.Version == null ? $"{at}. It keeps itself up to date."
+                var damage = await app.Damage(closing.Token);
+                if (stage != Stage.Choosing) return;
+                c.Damaged = damage != null;
+                if (damage != null)
+                {
+                    // something is wrong with it: picked, so Install puts it right (settings and library stay as they are)
+                    c.SetPicked(true);
+                    c.Say($"{at}, but {damage}. Install repairs it.", Ink.Amber);
+                }
+                else c.Say(h.Version == null ? $"{at}. It keeps itself up to date."
                     : Releases.Compare(h.Version, r.Version) >= 0 ? $"{at}, version {h.Version}, the newest."
                     : $"{at}, version {h.Version}. It will update itself to {r.Version}.");
             }
@@ -580,7 +591,7 @@ public sealed class MainWindow : Window
             var report = new Watch(c);
             var version = await Task.Run(() => c.App.Install(appWork, report, testRun, closing.Token));
             if (testRun) c.Done($"Checked, version {version}. Not installed (test run).");
-            else c.Done($"Installed, version {version}", ("Open", () => Open(c.App)));
+            else c.Done($"{(c.Damaged ? "Repaired" : "Installed")}, version {version}", ("Open", () => Open(c.App)));
             Log.Write($"{c.App.Name}: done, {version}");
         }
         catch (OperationCanceledException) { return; }

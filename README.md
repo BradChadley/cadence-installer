@@ -16,6 +16,7 @@ The file is not signed yet, so Windows says "Windows protected your PC" the firs
 | When | It does |
 |---|---|
 | An app is already on the PC | Says so ("On this PC, version 0.26.8, the newest.") and leaves it unpicked. Picking it installs the newest version over it. |
+| An app is on the PC but damaged (files missing, or the Music Tool's program spoiled) | Says so in amber ("On this PC, but some of its files are missing. Install repairs it.") and starts picked. Install puts it right, and the end says "Repaired". Settings and the music library live in other folders and are never touched. Only sure signs count, so a working install is never called damaged. |
 | The Music Tool was unpacked somewhere else (say, Documents) | Finds it through its shortcuts or the running program, and updates that copy instead of making a second one. |
 | An app is open | Says "Close Cadence first, then click Install." before anything starts. |
 | GitHub's API is busy (60 questions an hour per address) | Reads the releases from github.com's own "latest" links instead; every check still holds. |
@@ -47,6 +48,7 @@ To change an app's picture, copy its new `.ico` over `src\Assets\cadence.ico` or
 | Command | What it does |
 |---|---|
 | `"Get Bradley's apps.exe" --check <folder>` | No window. Checks the signature test, downloads and checks both apps, and places the Music Tool with real shortcuts, all inside `<folder>`. Exit code 0 means all good. |
+| `"Get Bradley's apps.exe" --health <folder>` | No window. The damage checks: this PC's installs must come out whole (it only reads them), and made-up damaged copies in `<folder>` must be caught. |
 | `... --check <folder> --no-api` | The same, the way used when GitHub's API is busy. |
 | `... --check <folder> --tamper` | Spoils each download. Every check must then refuse it. |
 | `"Get Bradley's apps.exe" --test-run <folder>` | The window as usual, but it only downloads and checks. Add `--auto` to press Install by itself. |
