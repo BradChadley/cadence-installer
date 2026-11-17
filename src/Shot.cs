@@ -17,7 +17,23 @@ static class Shot
         switch (state)
         {
             case "fresh":
-                cadence.Say("Version 0.26.8, 98 MB"); tool.Say("Version 1.0.4, 9 MB");
+                cadence.Say("Version 0.26.8, 98 MB"); tool.Say("Version 1.0.4, 9 MB, plus ffmpeg (109 MB)");
+                break;
+            case "ffmpeg":
+                w.SetHeading("Installing", "You can keep using your PC. This takes about a minute.");
+                w.SetButton(null, null); w.SetFoot("");
+                foreach (var c in cards) c.Lock(true);
+                await Wait(100);
+                cadence.Done("Installed, version 0.26.8.", ("Open", None));
+                tool.Label("Downloading ffmpeg");
+                tool.Downloading(47 * 1048576L, 109 * 1048576L);
+                break;
+            case "ffmpeg-done":
+                w.SetHeading("All set", "You'll find both in your Start menu.");
+                w.SetButton("Close", None); w.SetFoot("");
+                foreach (var c in cards) c.Lock(true);
+                cadence.Done("Installed, version 0.26.8.", ("Open", None));
+                tool.Done("Installed, version 1.0.4. ffmpeg is ready too.", ("Open", None));
                 break;
             case "here":
                 cadence.SetPicked(false); tool.SetPicked(false);

@@ -8,6 +8,7 @@ The file is not signed yet, so Windows says "Windows protected your PC" the firs
 
 - **It never needs a new version of its own.** Each time it runs it asks GitHub for the newest release of each app, so a new Cadence or Music Tool release is picked up with nothing to do here.
 - **Each app stays its own app.** Cadence is installed by its own installer (run quietly), so it keeps its own updates and its own line in Windows' Apps list. The Music Tool has no installer: this puts its exe where the Music Tool's own ship script does, `%LOCALAPPDATA%\Programs\Bradley's Music Tool`, with a Start menu and a desktop shortcut, and from then on it updates itself as usual.
+- **ffmpeg comes along.** When the Music Tool is picked and the PC has no ffmpeg, it fetches ffmpeg from its makers' own release, checked against the Music Tool's pin, and puts it where the app looks, so music can be checked and converted from the first start. Which ffmpeg to get is read from the Music Tool release's signed `helpers.json` (see [HELPERS-JSON.md](HELPERS-JSON.md)). If that ever fails, the app offers to get ffmpeg itself.
 - **No admin rights.** Both install for the Windows account only.
 - **Nothing runs unchecked.** Cadence's installer must match the SHA-256 GitHub records for it and the one in the release's `SHA256SUMS.txt` (they must agree). The Music Tool's exe must match the release's `update.json`, which must carry Bradley's signature: the same check, with the same key, the Music Tool's own updater makes. A download that fails is fetched once more, then refused.
 

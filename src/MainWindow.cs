@@ -218,6 +218,8 @@ sealed class Card : Border, IReport
     // ---------------------------------------------------------------- IReport (called from any thread)
 
     long lastHave = -1;
+    string downloadWord = "Downloading";
+    public void Label(string words) => Dispatcher.UIThread.Post(() => { downloadWord = words; lastHave = -1; });
     public void Downloading(long have, long? total) => Dispatcher.UIThread.Post(() =>
     {
         if (have == lastHave) return;
@@ -229,9 +231,9 @@ sealed class Card : Border, IReport
         if (total is > 0 and var t)
         {
             SetFraction((double)have / t);
-            Say("Downloading", Ink.Soft, $"{Mb(have)} of {Mb(t)} MB");
+            Say(downloadWord, Ink.Soft, $"{Mb(have)} of {Mb(t)} MB");
         }
-        else Say("Downloading", Ink.Soft, $"{Mb(have)} MB");
+        else Say(downloadWord, Ink.Soft, $"{Mb(have)} MB");
     });
 
     public void Step(string words) => Dispatcher.UIThread.Post(() =>
@@ -530,7 +532,17 @@ public sealed class MainWindow : Window
                     : Releases.Compare(h.Version, r.Version) >= 0 ? $"{at}, version {h.Version}, the newest."
                     : $"{at}, version {h.Version}. It will update itself to {r.Version}.");
             }
-            else c.Say($"Version {r.Version}{sized}");
+            else
+            {
+                // the Music Tool brings ffmpeg along when this PC has none
+                if (app is MusicTool tool && await Task.Run(MusicTool.FfmpegMissing))
+                {
+                    var pin = await tool.FfmpegPin(closing.Token);
+                    sized += $", plus ffmpeg ({Math.Round(pin.Size / 1048576.0):0} MB)";
+                }
+                if (stage != Stage.Choosing) return;
+                c.Say($"Version {r.Version}{sized}");
+            }
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
@@ -590,8 +602,9 @@ public sealed class MainWindow : Window
             Directory.CreateDirectory(appWork);
             var report = new Watch(c);
             var version = await Task.Run(() => c.App.Install(appWork, report, testRun, closing.Token));
-            if (testRun) c.Done($"Checked, version {version}. Not installed (test run).");
-            else c.Done($"{(c.Damaged ? "Repaired" : "Installed")}, version {version}", ("Open", () => Open(c.App)));
+            var note = c.App.Note is { } n ? " " + n : "";
+            if (testRun) c.Done($"Checked, version {version}.{note} Not installed (test run).");
+            else c.Done($"{(c.Damaged ? "Repaired" : "Installed")}, version {version}.{note}", ("Open", () => Open(c.App)));
             Log.Write($"{c.App.Name}: done, {version}");
         }
         catch (OperationCanceledException) { return; }
@@ -651,6 +664,7 @@ public sealed class MainWindow : Window
     {
         public void Downloading(long have, long? total) => c.Downloading(have, total);
         public void Step(string words) => c.Step(words);
+        public void Label(string words) => c.Label(words);
     }
 
     static void Open(App app)

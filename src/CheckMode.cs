@@ -10,6 +10,7 @@ public static class CheckMode
     sealed class Printer(string name, bool tamper, string folder) : IReport
     {
         long last = -1;
+        public void Label(string words) => Console.WriteLine($"  {name}: {words}");
         public void Downloading(long have, long? total)
         {
             if (total is { } t && have == t && last != have) { last = have; Console.WriteLine($"  {name}: downloaded {have:N0} bytes"); }
@@ -34,7 +35,9 @@ public static class CheckMode
         Directory.CreateDirectory(folder);
         Console.WriteLine($"Get Bradley's apps, check only (nothing is installed), into {Path.GetFullPath(folder)}");
         if (noApi) Releases.ForceFallback = true;
+        MusicTool.ForceFfmpeg = true; // fetched even when this PC has ffmpeg, to test the way there
         var failures = 0;
+        failures += HelpersSignatureTest();
         // the signature check itself: the live signed file list passes; any change to it does not
         if (!noApi)
         {
@@ -75,7 +78,7 @@ public static class CheckMode
                 var version = await app.Install(work, new Printer(app.Name, tamper, work), testRun: true, CancellationToken.None);
                 Console.WriteLine($"  PASSED every check: version {version}, {clock.Elapsed.TotalSeconds:N1} s");
                 if (tamper) failures++;
-                else if (app is MusicTool) failures += PlaceTest(Path.Combine(work, "music-tool", "bradleys-music-tool.exe"), Path.Combine(Path.GetFullPath(folder), "place-test"));
+                else if (app is MusicTool) failures += PlaceTest(Path.Combine(work, "music-tool", "bradleys-music-tool.exe"), Path.Combine(work, "ffmpeg"), Path.Combine(Path.GetFullPath(folder), "place-test"));
             }
             catch (Problem p)
             {
@@ -94,14 +97,53 @@ public static class CheckMode
     }
 
     /// <summary>
+    /// helpers.json's signature, with a key made for this test only (the real key never leaves the author's PC):
+    /// a file signed with it passes; any change to it, or the same file checked against the real key, does not.
+    /// </summary>
+    static int HelpersSignatureTest()
+    {
+        var bad = 0;
+        void Expect(bool ok, string what) { Console.WriteLine($"  {(ok ? "ok" : "NOT OK")}: {what}"); if (!ok) bad++; }
+        Console.WriteLine("helpers.json signature test (a throwaway key):");
+        using var ec = System.Security.Cryptography.ECDsa.Create(System.Security.Cryptography.ECCurve.NamedCurves.nistP256);
+        var q = ec.ExportParameters(false).Q;
+        var key = Convert.ToHexStringLower(q.X!) + Convert.ToHexStringLower(q.Y!);
+        var p = HelperPin.BuiltIn;
+        string Json(string version, string url, long size, string sha, string sig) =>
+            "{\"ffmpeg\": {\"version\": \"" + version + "\", \"url\": \"" + url + "\", \"size\": " + size + ", \"sha256\": \"" + sha + "\", \"signature\": \"" + sig + "\"}}";
+        var sig = Convert.ToHexStringLower(ec.SignData(System.Text.Encoding.UTF8.GetBytes(HelperPin.SignedText(p.Version, p.Url, p.Size, p.Sha256)),
+            System.Security.Cryptography.HashAlgorithmName.SHA256, System.Security.Cryptography.DSASignatureFormat.IeeeP1363FixedFieldConcatenation));
+        Expect(HelperPin.ReadSigned(Json(p.Version, p.Url, p.Size, p.Sha256, sig), key) == p, "signed: passes, with every field as signed");
+        Expect(HelperPin.ReadSigned(Json(p.Version, "https://example.com/ffmpeg.zip", p.Size, p.Sha256, sig), key) == null, "another address: refused");
+        Expect(HelperPin.ReadSigned(Json(p.Version, p.Url, p.Size, new string('a', 64), sig), key) == null, "another checksum: refused");
+        Expect(HelperPin.ReadSigned(Json("9.9.9", p.Url, p.Size, p.Sha256, sig), key) == null, "another version: refused");
+        Expect(HelperPin.ReadSigned(Json(p.Version, p.Url, p.Size, p.Sha256, sig)) == null, "checked against Bradley's real key: refused");
+        Expect(HelperPin.ReadSigned(Json(p.Version, p.Url.Replace("https://", "http://"), p.Size, p.Sha256, sig), key) == null, "a plain http address: refused");
+        Expect(HelperPin.ReadSigned("{}", key) == null && HelperPin.ReadSigned("not json", key) == null, "nonsense: refused, no crash");
+        return bad;
+    }
+
+    /// <summary>
     /// Puts the checked Music Tool exe in a stand-in program folder and writes real shortcuts in stand-in Start menu and
     /// desktop folders (all under <paramref name="root"/>), twice, then once more while a program runs from that exe.
     /// Nothing outside <paramref name="root"/> is touched. Returns the number of things not as expected.
     /// </summary>
-    static int PlaceTest(string exe, string root)
+    static int PlaceTest(string exe, string ffmpeg, string root)
     {
         var bad = 0;
         void Expect(bool ok, string what) { Console.WriteLine($"  {(ok ? "ok" : "NOT OK")}: {what}"); if (!ok) bad++; }
+        // ffmpeg: the files the app keeps, in a stand-in data folder, twice (the second swaps the first out)
+        var data = Path.Combine(root, "music-recs");
+        if (Directory.Exists(root)) Directory.Delete(root, true);
+        for (var i = 0; i < 2; i++) MusicTool.PlaceFfmpeg(ffmpeg, data);
+        var home = Path.Combine(data, "tools", "ffmpeg");
+        var kept = Directory.Exists(home) ? Directory.GetFiles(home).Select(Path.GetFileName).Order(StringComparer.OrdinalIgnoreCase).ToArray() : [];
+        Expect(string.Join(", ", kept) == "ffmpeg.exe, ffprobe.exe, LICENSE, README.txt", $"ffmpeg placed as the app keeps it: {string.Join(", ", kept)}");
+        Expect(Directory.GetDirectories(Path.Combine(data, "tools")).Length == 1, "nothing left beside it");
+        Expect(MusicTool.FindTool("ffprobe", data) is { } found && (found.StartsWith(home, StringComparison.OrdinalIgnoreCase) || !found.Contains("music-recs")), "the app's way of looking finds it");
+        var ver = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Path.Combine(home, "ffmpeg.exe"), "-version") { RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true })!;
+        var first = ver.StandardOutput.ReadLine() ?? ""; ver.WaitForExit();
+        Expect(first.StartsWith("ffmpeg version"), $"it runs: \"{first[..Math.Min(40, first.Length)]}\"");
         if (Directory.Exists(root)) Directory.Delete(root, true);
         var program = Path.Combine(root, "Programs", "Bradley's Music Tool");
         var start = Path.Combine(root, "Start menu", "Bradley's Music Tool.lnk");

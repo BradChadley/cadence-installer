@@ -16,6 +16,8 @@ public interface IReport
     void Downloading(long have, long? total);
     /// <summary>A step with no measure (checking, installing): the line glides.</summary>
     void Step(string words);
+    /// <summary>The word the download line starts with from now on ("Downloading ffmpeg").</summary>
+    void Label(string words) { }
 }
 
 public abstract class App
@@ -31,6 +33,8 @@ public abstract class App
 
     public string Page => $"https://github.com/{Repo}/releases/latest";
     public Installed? Here { get; private set; }
+    /// <summary>A sentence for the end of the last install, beside the version ("ffmpeg is ready too."), or null.</summary>
+    public string? Note { get; protected set; }
     Task<Release>? release;
 
     /// <summary>Looks for the app on this PC again (after an install, or when the window opens).</summary>
@@ -393,6 +397,26 @@ public sealed class MusicTool : App
             if (!await Matches(exe, m, ct)) throw new Problem("The Music Tool download couldn't be confirmed as Bradley's, so it wasn't used.", retry: false);
         }
         Log.Write("Music Tool: the exe matches the signed file list");
+
+        // ffmpeg, so the app can check and convert music from its first start (skipped when this PC already has it).
+        // It comes from its makers' own release, checked against the app's pin; a failure here never stops the app.
+        Note = null;
+        string? ffmpeg = null;
+        if (ForceFfmpeg || FfmpegMissing())
+        {
+            try
+            {
+                var pin = await FfmpegPin(ct);
+                report.Label("Downloading ffmpeg");
+                ffmpeg = await FetchFfmpeg(pin, work, report, ct);
+            }
+            catch (Exception e) when ((e is Problem or IOException or InvalidDataException or UnauthorizedAccessException) && !ct.IsCancellationRequested)
+            {
+                Log.Write($"ffmpeg: {e.Message}");
+                Note = "ffmpeg didn't download; the app will offer to get it.";
+            }
+            finally { report.Label("Downloading"); }
+        }
         if (testRun) return m.Version;
 
         report.Step("Waiting");
@@ -410,10 +434,125 @@ public sealed class MusicTool : App
                 catch (Exception e) { Log.Write($"{Path.GetFileName(x)} not copied: {e.Message}"); }
             }
             Shortcuts(final, StartMenuLink, DesktopFolder);
+            if (ffmpeg != null)
+            {
+                try { PlaceFfmpeg(ffmpeg, DataFolder); Note = "ffmpeg is ready too."; }
+                catch (Exception e) { Log.Write($"ffmpeg not put in place: {e.Message}"); Note = "ffmpeg couldn't be put in place; the app will offer to get it."; }
+            }
             Look();
             return ProductVersion(final) ?? m.Version;
         }
         finally { Gate.Release(); }
+    }
+
+    // ---------------------------------------------------------------- ffmpeg
+
+    /// <summary>For --check: fetch ffmpeg even when this PC has it, to test the way there.</summary>
+    public static bool ForceFfmpeg;
+
+    /// <summary>The Music Tool's data folder (src\config.rs app_dir), where it keeps the ffmpeg it uses.</summary>
+    public static string DataFolder => Path.Combine(LocalAppData, "music-recs");
+
+    /// <summary>
+    /// Where the app finds a program of ffmpeg's, in its own order (src\importer\tools.rs look_for_tool): PATH, then
+    /// its data folder's tools\ffmpeg, then winget's packages. Null when it would not find it.
+    /// </summary>
+    public static string? FindTool(string name, string dataFolder)
+    {
+        var exe = name + ".exe";
+        foreach (var dir in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            try { var p = Path.Combine(dir.Trim('"'), exe); if (File.Exists(p)) return p; } catch { }
+        }
+        var own = Path.Combine(dataFolder, "tools", "ffmpeg", exe);
+        if (File.Exists(own)) return own;
+        var winget = Path.Combine(LocalAppData, "Microsoft", "WinGet", "Packages");
+        if (!Directory.Exists(winget)) return null;
+        try
+        {
+            return Directory.EnumerateFiles(winget, exe, new EnumerationOptions { RecurseSubdirectories = true, MaxRecursionDepth = 6, IgnoreInaccessible = true, MatchCasing = MatchCasing.CaseInsensitive }).FirstOrDefault();
+        }
+        catch { return null; }
+    }
+
+    /// <summary>True when the app would not find ffmpeg or ffprobe on this PC.</summary>
+    public static bool FfmpegMissing() => FindTool("ffmpeg", DataFolder) == null || FindTool("ffprobe", DataFolder) == null;
+
+    Task<HelperPin>? ffmpegPin;
+
+    /// <summary>The ffmpeg the newest release asks for (its signed helpers.json), or the built-in pin when it has none or it fails.</summary>
+    public Task<HelperPin> FfmpegPin(CancellationToken ct)
+    {
+        if (ffmpegPin is { IsFaulted: true } or { IsCanceled: true }) ffmpegPin = null;
+        return ffmpegPin ??= Read();
+        async Task<HelperPin> Read()
+        {
+            var r = await Newest(ct);
+            if (r.Find(n => n.Equals("helpers.json", StringComparison.OrdinalIgnoreCase)) is { } a)
+            {
+                string? text = null;
+                try { text = await Net.Text(a.Url, ct, most: 64 * 1024); } catch (Problem) { }
+                if (text != null && HelperPin.ReadSigned(text) is { } signed) { Log.Write($"ffmpeg {signed.Version} from the release's signed helpers.json"); return signed; }
+                Log.Write("the release's helpers.json could not be read or is not signed: the built-in ffmpeg pin is used");
+            }
+            else Log.Write($"the release has no helpers.json: the built-in ffmpeg pin ({HelperPin.BuiltIn.Version}) is used");
+            return HelperPin.BuiltIn;
+        }
+    }
+
+    /// <summary>Fetches ffmpeg's zip, checks it, and unpacks what the app keeps into a folder of <paramref name="work"/>.</summary>
+    public static async Task<string> FetchFfmpeg(HelperPin pin, string work, IReport report, CancellationToken ct)
+    {
+        var zip = Path.Combine(work, "ffmpeg.zip");
+        await Fetch(new Asset(Path.GetFileName(new Uri(pin.Url).AbsolutePath), pin.Url, pin.Size, null), zip, pin.Sha256, report, ct);
+        var into = Path.Combine(work, "ffmpeg");
+        if (Directory.Exists(into)) Directory.Delete(into, true);
+        Directory.CreateDirectory(into);
+        using (var archive = ZipFile.OpenRead(zip))
+        {
+            foreach (var entry in archive.Entries)
+            {
+                // the same files the app keeps (src\helpers.rs Helper::place): the two programs from bin, and the license
+                var parts = entry.FullName.Split('/', '\\');
+                string? name = parts switch
+                {
+                    [_, "bin", var exe] when exe.Equals("ffmpeg.exe", StringComparison.OrdinalIgnoreCase) || exe.Equals("ffprobe.exe", StringComparison.OrdinalIgnoreCase) => exe.ToLowerInvariant(),
+                    [_, "LICENSE" or "README.txt"] => parts[1],
+                    _ => null,
+                };
+                if (name != null) entry.ExtractToFile(Path.Combine(into, name), true);
+            }
+        }
+        File.Delete(zip);
+        if (!File.Exists(Path.Combine(into, "ffmpeg.exe")) || !File.Exists(Path.Combine(into, "ffprobe.exe")))
+            throw new Problem("ffmpeg's download didn't hold its programs.", retry: false);
+        Log.Write($"ffmpeg {pin.Version}: checked and unpacked");
+        return into;
+    }
+
+    /// <summary>
+    /// Puts the unpacked ffmpeg at &lt;data folder&gt;\tools\ffmpeg in one step, the way the app does: built beside it first,
+    /// then swapped in, so the app never meets half of it.
+    /// </summary>
+    public static void PlaceFfmpeg(string unpacked, string dataFolder)
+    {
+        var tools = Path.Combine(dataFolder, "tools");
+        var home = Path.Combine(tools, "ffmpeg");
+        Directory.CreateDirectory(tools);
+        var fresh = Path.Combine(tools, $".ffmpeg-new-{Environment.ProcessId}");
+        var old = Path.Combine(tools, $".ffmpeg-old-{Environment.ProcessId}");
+        foreach (var d in new[] { fresh, old }) if (Directory.Exists(d)) Directory.Delete(d, true);
+        Directory.CreateDirectory(fresh);
+        foreach (var f in Directory.GetFiles(unpacked)) File.Copy(f, Path.Combine(fresh, Path.GetFileName(f)));
+        if (Directory.Exists(home)) Directory.Move(home, old);
+        try { Directory.Move(fresh, home); }
+        catch
+        {
+            if (Directory.Exists(old) && !Directory.Exists(home)) Directory.Move(old, home);
+            throw;
+        }
+        try { if (Directory.Exists(old)) Directory.Delete(old, true); } catch { }
+        Log.Write($"ffmpeg placed at {home}");
     }
 
     static async Task<bool> Matches(string exe, Manifest m, CancellationToken ct) =>
