@@ -2,6 +2,10 @@
 
 One small file to give people. They pick Cadence, Bradley's Music Tool, or both, and click Install.
 
+**[Download Get Bradley's apps](https://github.com/BradChadley/get-bradleys-apps/releases/latest/download/Get-Bradleys-apps.exe)** (Windows 10 and 11, 64-bit, about 22 MB)
+
+The file is not signed yet, so Windows says "Windows protected your PC" the first time. Click "More info", then "Run anyway".
+
 - **It never needs a new version of its own.** Each time it runs it asks GitHub for the newest release of each app, so a new Cadence or Music Tool release is picked up with nothing to do here.
 - **Each app stays its own app.** Cadence is installed by its own installer (run quietly), so it keeps its own updates and its own line in Windows' Apps list. The Music Tool has no installer: this puts its exe where the Music Tool's own ship script does, `%LOCALAPPDATA%\Programs\Bradley's Music Tool`, with a Start menu and a desktop shortcut, and from then on it updates itself as usual.
 - **No admin rights.** Both install for the Windows account only.
