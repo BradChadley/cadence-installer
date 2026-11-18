@@ -1,8 +1,10 @@
-# Get Bradley's apps
+# Cadence Installer
 
 One small file to give people. It installs Cadence, Bradley's music player, with one click.
 
-**[Download Get Bradley's apps](https://github.com/BradChadley/get-bradleys-apps/releases/latest/download/Get-Bradleys-apps.exe)** (Windows 10 and 11, 64-bit, about 22 MB)
+**[Download Cadence Installer](https://github.com/BradChadley/cadence-installer/releases/latest/download/Cadence-Installer.exe)** (Windows 10 and 11, 64-bit, about 22 MB)
+
+It used to be called Get Bradley's apps. Old links still work: each release attaches the same file under both names, `Cadence-Installer.exe` and the old `Get-Bradleys-apps.exe`, and its `SHA256SUMS.txt` lists both. GitHub follows the repository's old name to the new one, but not a file's old name, so the old file name stays on every release. The link to give people is the one above.
 
 The file is not signed yet, so Windows says "Windows protected your PC" the first time. Click "More info", then "Run anyway".
 
@@ -29,7 +31,7 @@ The file is not signed yet, so Windows says "Windows protected your PC" the firs
 | The window is closed while the installer runs | Waits: an install is never cut off halfway. |
 | A release renames its files | The installer is found by kind (the file ending `Setup.exe`), not by exact name. |
 
-It writes one plain log per run: `%TEMP%\Get Bradley's apps.log`.
+It writes one plain log per run: `%TEMP%\Cadence Installer.log`.
 
 **What would need a new build here:** only a change in how Cadence is published. For example, Cadence leaving Velopack or moving to another GitHub repository.
 
@@ -41,7 +43,7 @@ Needs the .NET 10 SDK and Visual Studio's "Desktop development with C++". The na
 pwsh -File build.ps1 -Check
 ```
 
-That writes `out\Get Bradley's apps.exe`, about 22 MB, one file that needs nothing installed. `-Check` then downloads and checks Cadence into `work\check` and installs nothing. If `dotnet` is not on PATH, pass `-Dotnet <path to dotnet.exe>`.
+That writes `out\Cadence Installer.exe`, about 22 MB, one file that needs nothing installed, and `out\release` with the files a release attaches: `Cadence-Installer.exe`, the same file as `Get-Bradleys-apps.exe` for old links, and `SHA256SUMS.txt` listing both. `-Check` then downloads and checks Cadence into `work\check` and installs nothing. If `dotnet` is not on PATH, pass `-Dotnet <path to dotnet.exe>`.
 
 The build refuses to finish if the exe names this PC's user folder or project folders. Other words it must never contain go in `work\private-words.txt`, one per line. That file stays out of git.
 
@@ -51,16 +53,16 @@ To change Cadence's picture, copy its new `.ico` over `src\Assets\cadence.ico` a
 
 | Command | What it does |
 |---|---|
-| `"Get Bradley's apps.exe" --check <folder>` | No window. Downloads and checks Cadence inside `<folder>`, and lists what it would remove of the old Music Tool on this PC (it only reads). Exit code 0 means all good. |
-| `"Get Bradley's apps.exe" --health <folder>` | No window. The damage check: this PC's Cadence must come out whole (it only reads it), and made-up damaged copies in `<folder>` must be caught. Then the Music Tool removal, on a made-up PC in `<folder>`. |
+| `"Cadence Installer.exe" --check <folder>` | No window. Downloads and checks Cadence inside `<folder>`, and lists what it would remove of the old Music Tool on this PC (it only reads). Exit code 0 means all good. |
+| `"Cadence Installer.exe" --health <folder>` | No window. The damage check: this PC's Cadence must come out whole (it only reads it), and made-up damaged copies in `<folder>` must be caught. Then the Music Tool removal, on a made-up PC in `<folder>`. |
 | `... --check <folder> --no-api` | The same, the way used when GitHub's API is busy. |
 | `... --check <folder> --tamper` | Spoils the download. The check must then refuse it. |
-| `"Get Bradley's apps.exe" --test-run <folder>` | The window as usual, but it only downloads and checks Cadence, and removes the old Music Tool from a made-up PC it builds in `<folder>\pretend-pc` (folder, shortcuts, a task list and a Recycle Bin, all files there). The real PC's Music Tool, Task Scheduler and Recycle Bin can't be reached in a test run. Add `--auto` to press Install and close by itself, `--tool-running` to have the made-up Music Tool open, `--no-tool` to leave it out. |
-| `"Get Bradley's apps.exe" --shot <state> <png>` | Draws the window in a made-up state (fresh, here, tool, tool-off, tool-closing, tool-left, installing, checking, done, error, damaged, repaired, open) into a picture. |
+| `"Cadence Installer.exe" --test-run <folder>` | The window as usual, but it only downloads and checks Cadence, and removes the old Music Tool from a made-up PC it builds in `<folder>\pretend-pc` (folder, shortcuts, a task list and a Recycle Bin, all files there). The real PC's Music Tool, Task Scheduler and Recycle Bin can't be reached in a test run. Add `--auto` to press Install and close by itself, `--tool-running` to have the made-up Music Tool open, `--no-tool` to leave it out. |
+| `"Cadence Installer.exe" --shot <state> <png>` | Draws the window in a made-up state (fresh, here, tool, tool-off, tool-closing, tool-left, installing, checking, done, error, damaged, repaired, open) into a picture. |
 
 ## How it is built
 
-C# and Avalonia, the same as Cadence, compiled ahead of time to one native exe that starts in about a fifth of a second. Skia and HarfBuzz (drawing and text) ride inside, compressed. They are unpacked once to `%TEMP%\GetBradleysApps-native`. The window draws in software rather than through the graphics card, so no graphics driver can break it.
+C# and Avalonia, the same as Cadence, compiled ahead of time to one native exe that starts in about a fifth of a second. Skia and HarfBuzz (drawing and text) ride inside, compressed. They are unpacked once to `%TEMP%\CadenceInstaller-native`. The window draws in software rather than through the graphics card, so no graphics driver can break it.
 
 | File | What it holds |
 |---|---|

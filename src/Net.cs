@@ -15,7 +15,7 @@ public sealed class Problem(string words, bool retry = true, bool page = true, E
 /// <summary>Everything that goes over the network: GitHub's API, the release files, with resume and retries.</summary>
 public static class Net
 {
-    public const string UserAgent = "GetBradleysApps/1.0 (+https://github.com/BradChadley)";
+    public const string UserAgent = "CadenceInstaller/1.1 (+https://github.com/BradChadley)";
     static readonly TimeSpan Stall = TimeSpan.FromSeconds(30);
 
     static HttpClient Make(bool redirects) => new(new SocketsHttpHandler
@@ -145,14 +145,14 @@ public static class Net
 public static class Log
 {
     static readonly object Gate = new();
-    public static string Path { get; } = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "Get Bradley's apps.log");
+    public static string Path { get; } = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "Cadence Installer.log");
 
     public static void Start()
     {
         try
         {
             // one run's log, so it never grows without end
-            File.WriteAllText(Path, $"Get Bradley's apps {typeof(Log).Assembly.GetName().Version}, {DateTime.Now:yyyy-MM-dd HH:mm:ss}, {Environment.OSVersion.VersionString}{Environment.NewLine}");
+            File.WriteAllText(Path, $"Cadence Installer {typeof(Log).Assembly.GetName().Version}, {DateTime.Now:yyyy-MM-dd HH:mm:ss}, {Environment.OSVersion.VersionString}{Environment.NewLine}");
         }
         catch { }
     }

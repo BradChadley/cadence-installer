@@ -7,10 +7,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <AssemblyName>GetBradleysApps</AssemblyName>
+    <AssemblyName>CadenceInstaller</AssemblyName>
     <RootNamespace>BradleysApps</RootNamespace>
-    <Product>Get Bradley's apps</Product>
-    <AssemblyTitle>Get Bradley's apps</AssemblyTitle>
+    <Product>Cadence Installer</Product>
+    <AssemblyTitle>Cadence Installer</AssemblyTitle>
+    <Description>Installs Cadence, Bradley's music player</Description>
     <Company>BradChadley</Company>
     <Version>1.1.0</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>

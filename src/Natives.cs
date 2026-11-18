@@ -5,7 +5,7 @@ namespace BradleysApps;
 
 /// <summary>
 /// Skia and HarfBuzz (the drawing and the text) ride inside the exe, compressed. At start they are unpacked once
-/// into %TEMP%\GetBradleysApps-native\&lt;this build&gt; and Windows is told to look there for them.
+/// into %TEMP%\CadenceInstaller-native\&lt;this build&gt; and Windows is told to look there for them.
 /// A debug build has them beside the exe and nothing inside: then this does nothing.
 /// </summary>
 static partial class Natives
@@ -19,10 +19,10 @@ static partial class Natives
         var asm = typeof(Natives).Assembly;
         var names = asm.GetManifestResourceNames().Where(n => n.StartsWith("native/", StringComparison.Ordinal)).Order().ToList();
         if (names.Count == 0) return;
-        // one folder per build: the version and the packed sizes name it, so a newer chooser never meets older files
+        // one folder per build: the version and the packed sizes name it, so a newer build never meets older files
         long key = 17;
         foreach (var n in names) { using var s = asm.GetManifestResourceStream(n)!; key = key * 31 + s.Length; }
-        var parent = Path.Combine(Path.GetTempPath(), "GetBradleysApps-native");
+        var parent = Path.Combine(Path.GetTempPath(), "CadenceInstaller-native");
         var dir = Path.Combine(parent, $"{asm.GetName().Version}-{key & 0xFFFFFFFF:x8}");
         var done = Path.Combine(dir, "unpacked");
         try

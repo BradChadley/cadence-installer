@@ -65,7 +65,7 @@ sealed class Card : Border, IReport
         ClipToBounds = true;
         Margin = new Thickness(0, 0, 0, 12);
 
-        try { picture.Source = new Bitmap(AssetLoader.Open(new Uri("avares://GetBradleysApps/Assets/cadence.png"))); } catch { }
+        try { picture.Source = new Bitmap(AssetLoader.Open(new Uri("avares://CadenceInstaller/Assets/cadence.png"))); } catch { }
 
         var name = new TextBlock { Text = Cadence.Name, FontSize = 18, Foreground = Ink.Title, FontFamily = Ink.Font };
         var about = new TextBlock { Text = Cadence.Description, FontSize = 13, Foreground = Ink.Soft, TextWrapping = TextWrapping.Wrap, LineHeight = 18.5, Margin = new Thickness(0, 3, 0, 0) };
@@ -281,7 +281,7 @@ public sealed class MainWindow : Window
 
     public MainWindow()
     {
-        Title = "Get Bradley's apps";
+        Title = "Cadence Installer";
         Width = 600;
         SizeToContent = SizeToContent.Height;
         CanResize = false;
@@ -291,9 +291,9 @@ public sealed class MainWindow : Window
         Background = Ink.Canvas;
         FontFamily = Ink.TextFont;
         RequestedThemeVariant = ThemeVariant.Dark;
-        try { Icon = new WindowIcon(AssetLoader.Open(new Uri("avares://GetBradleysApps/Assets/chooser.ico"))); } catch { }
+        try { Icon = new WindowIcon(AssetLoader.Open(new Uri("avares://CadenceInstaller/Assets/chooser.ico"))); } catch { }
 
-        work = Options.TestFolder ?? System.IO.Path.Combine(System.IO.Path.GetTempPath(), "GetBradleysApps", Environment.ProcessId.ToString());
+        work = Options.TestFolder ?? System.IO.Path.Combine(System.IO.Path.GetTempPath(), "CadenceInstaller", Environment.ProcessId.ToString());
 
         // the soft rose light at the top
         var glow = new Border

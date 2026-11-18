@@ -33,7 +33,7 @@ public static class Program
         return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 
-    public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<ChooserApp>().UsePlatformDetect()
+    public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<InstallerApp>().UsePlatformDetect()
         // drawn in software: no graphics driver can break it, and this small window needs no GPU
         .With(new Win32PlatformOptions { RenderingMode = [Win32RenderingMode.Software] })
         .LogToTrace();
@@ -46,7 +46,7 @@ public static class Options
     public static string? ShotFile;
 }
 
-public sealed class ChooserApp : Avalonia.Application
+public sealed class InstallerApp : Avalonia.Application
 {
     public override void Initialize()
     {

@@ -32,7 +32,7 @@ public static class CheckMode
     public static async Task<int> Run(string folder, bool noApi, bool tamper)
     {
         Directory.CreateDirectory(folder);
-        Console.WriteLine($"Get Bradley's apps, check only (nothing is installed), into {Path.GetFullPath(folder)}");
+        Console.WriteLine($"Cadence Installer, check only (nothing is installed), into {Path.GetFullPath(folder)}");
         if (noApi) Releases.ForceFallback = true;
         var failures = 0;
         var app = new Cadence();

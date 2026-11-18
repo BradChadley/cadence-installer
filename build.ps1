@@ -1,6 +1,8 @@
 <#
-  build.ps1: makes out\Get Bradley's apps.exe, one native file that needs nothing installed on the PC.
-  It publishes nothing and uploads nothing.
+  build.ps1: makes out\Cadence Installer.exe, one native file that needs nothing installed on the PC, and the
+  files a release attaches, in out\release: the same exe under its name, Cadence-Installer.exe, and under the old
+  name, Get-Bradleys-apps.exe (old links point at .../releases/latest/download/Get-Bradleys-apps.exe, and GitHub
+  does not redirect a renamed file), with SHA256SUMS.txt listing both. It publishes nothing and uploads nothing.
 
   Needs: the .NET 10 SDK and Visual Studio's "Desktop development with C++" (the native build uses its linker).
   Run:   pwsh -File build.ps1                       (finds dotnet on PATH, or names it with -Dotnet)
@@ -28,8 +30,8 @@ if ($LASTEXITCODE -ne 0) { throw 'The build failed.' }
 
 $out = Join-Path $root 'out'
 New-Item -ItemType Directory -Force $out | Out-Null
-$exe = Join-Path $out "Get Bradley's apps.exe"
-Copy-Item (Join-Path $publish 'GetBradleysApps.exe') $exe -Force
+$exe = Join-Path $out 'Cadence Installer.exe'
+Copy-Item (Join-Path $publish 'CadenceInstaller.exe') $exe -Force
 # only the exe goes out: it carries Skia and HarfBuzz inside (the loose copies beside the build are not needed)
 
 # names of this PC's folders must not be inside a file that goes to other people
@@ -49,6 +51,17 @@ $size = (Get-Item $exe).Length
 $hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
 "Built: $exe"
 '{0:N1} MB, SHA-256 {1}' -f ($size / 1MB), $hash
+
+# what a release attaches: one exe, under the new name and the old one, so every old download link keeps working
+$release = Join-Path $out 'release'
+if (Test-Path $release) { Remove-Item $release -Recurse -Force -Confirm:$false }
+New-Item -ItemType Directory -Force $release | Out-Null
+$names = 'Cadence-Installer.exe', 'Get-Bradleys-apps.exe'
+foreach ($n in $names) { Copy-Item $exe (Join-Path $release $n) }
+$sums = foreach ($n in $names) { '{0}  {1}' -f (Get-FileHash (Join-Path $release $n) -Algorithm SHA256).Hash.ToLowerInvariant(), $n }
+[IO.File]::WriteAllText((Join-Path $release 'SHA256SUMS.txt'), ($sums -join "`n") + "`n")
+if (@($sums | ForEach-Object { $_.Substring(0, 64) } | Select-Object -Unique).Count -ne 1) { throw 'The two release files differ.' }
+"Release files: $release ($($names -join ', '), SHA256SUMS.txt)"
 
 if ($Check) {
     $checkDir = Join-Path $root 'work\check'
