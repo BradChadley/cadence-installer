@@ -194,6 +194,8 @@ public sealed class Cadence
         }
         Look();
         if (Here == null) throw new Problem("Cadence's installer finished, but Cadence isn't there.");
+        // the same check as a damaged install: only a whole Cadence counts as installed
+        if (Health(Here.Folder) is { } wrong) throw new Problem($"Cadence's installer finished, but {wrong}.");
         return Here.Version ?? r.Version;
     }
 
@@ -210,29 +212,5 @@ public sealed class Cadence
             File.Delete(path);
             if (attempt >= 2) throw new Problem("The download didn't match its checksum, so it wasn't used.");
         }
-    }
-}
-
-/// <summary>
-/// Bradley's Music Tool, which this used to install too. It is part of Cadence now (0.30.0). A copy this put on the PC
-/// is only looked for, to say so in one line: its files, shortcuts and scheduled task are never touched.
-/// </summary>
-public static class OldMusicTool
-{
-    public const string Notice = "Bradley's Music Tool is now part of Cadence. Your copy keeps working; you can remove it from Windows' Apps when you like.";
-
-    /// <summary>True when the Music Tool is where this (and its own ship script) put it, or its Start menu shortcut is there.</summary>
-    public static bool Here()
-    {
-        try
-        {
-            var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            var exe = Path.Combine(local, "Programs", "Bradley's Music Tool", "bradleys-music-tool.exe");
-            var link = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Bradley's Music Tool.lnk");
-            var here = File.Exists(exe) || File.Exists(link);
-            Log.Write($"Music Tool: {(here ? "on this PC (the notice is shown)" : "not on this PC")}");
-            return here;
-        }
-        catch (Exception e) { Log.Write($"Music Tool: looking for it failed: {e.Message}"); return false; }
     }
 }

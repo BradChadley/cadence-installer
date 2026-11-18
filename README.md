@@ -6,7 +6,7 @@ One small file to give people. It installs Cadence, Bradley's music player, with
 
 The file is not signed yet, so Windows says "Windows protected your PC" the first time. Click "More info", then "Run anyway".
 
-**Bradley's Music Tool is part of Cadence now.** Its recommendations, album downloads and library repairs live in Cadence from version 0.30.0, so this installs only Cadence. Versions 1.0.x of this file also offered the Music Tool. Someone who has the Music Tool from back then sees one line saying so; their copy keeps working, and this never changes or removes it.
+**Bradley's Music Tool is part of Cadence now.** Its recommendations, album downloads and library repairs live in Cadence from version 0.30.0, so this installs only Cadence. Versions 1.0.x of this file also offered the Music Tool. For someone who has it, this removes the old copy once Cadence is installed and checked.
 
 - **It never needs a new version of its own.** Each time it runs it asks GitHub for Cadence's newest release, so a new Cadence release is picked up with nothing to do here.
 - **Cadence stays its own app.** It is installed by its own installer (run quietly), so it keeps its own updates and its own line in Windows' Apps list.
@@ -19,7 +19,8 @@ The file is not signed yet, so Windows says "Windows protected your PC" the firs
 |---|---|
 | Cadence is already on the PC | Says so ("On this PC, version 0.30.0, the newest."). Install puts the newest version over it. |
 | Cadence is on the PC but damaged (files missing) | Says so in amber ("On this PC, but some of its files are missing. Install repairs it."). Install puts it right, and the end says "Repaired". Settings and the music library live in other folders and are never touched. Only sure signs count, so a working install is never called damaged. |
-| The Music Tool is on the PC (in its usual folder, or with its Start menu shortcut) | One plain line: "Bradley's Music Tool is now part of Cadence. Your copy keeps working; you can remove it from Windows' Apps when you like." It only looks: its files, shortcuts and scheduled task stay as they are. |
+| The Music Tool is on the PC (its program in `%LOCALAPPDATA%\Programs\Bradley's Music Tool`, or a Start menu shortcut into that folder) | Says under the card: "Also removes the old Bradley's Music Tool. Its tools are part of Cadence now." Only after Cadence is installed and passes its checks (never if Cadence's install failed), it sends that folder and its Start menu and desktop shortcuts to the Recycle Bin, and removes the scheduled task "Music Backup (nightly)" only when that task runs the program in that folder. Its settings, reports and undo history (`%LOCALAPPDATA%\music-recs`) stay. The end says "Removed the old Bradley's Music Tool.", or names what's left and where. |
+| The Music Tool is open | Says "Close Bradley's Music Tool first, then click Install." before anything starts. If it was opened while Cadence installed, it asks to close it, with "Try again". |
 | Cadence is open | Says "Close Cadence first, then click Install." before anything starts. |
 | GitHub's API is busy (60 questions an hour per address) | Reads the release from github.com's own "latest" link instead; every check still holds. |
 | The connection drops | Carries on where it stopped, up to five tries; a connection silent for 30 seconds counts as dropped. |
@@ -49,12 +50,12 @@ To change Cadence's picture, copy its new `.ico` over `src\Assets\cadence.ico` a
 
 | Command | What it does |
 |---|---|
-| `"Get Bradley's apps.exe" --check <folder>` | No window. Downloads and checks Cadence inside `<folder>`, and says whether the Music Tool line would show. Exit code 0 means all good. |
-| `"Get Bradley's apps.exe" --health <folder>` | No window. The damage check: this PC's Cadence must come out whole (it only reads it), and made-up damaged copies in `<folder>` must be caught. |
+| `"Get Bradley's apps.exe" --check <folder>` | No window. Downloads and checks Cadence inside `<folder>`, and lists what it would remove of the old Music Tool on this PC (it only reads). Exit code 0 means all good. |
+| `"Get Bradley's apps.exe" --health <folder>` | No window. The damage check: this PC's Cadence must come out whole (it only reads it), and made-up damaged copies in `<folder>` must be caught. Then the Music Tool removal, on a made-up PC in `<folder>`. |
 | `... --check <folder> --no-api` | The same, the way used when GitHub's API is busy. |
 | `... --check <folder> --tamper` | Spoils the download. The check must then refuse it. |
-| `"Get Bradley's apps.exe" --test-run <folder>` | The window as usual, but it only downloads and checks. Add `--auto` to press Install by itself. |
-| `"Get Bradley's apps.exe" --shot <state> <png>` | Draws the window in a made-up state (fresh, here, tool, installing, checking, done, error, damaged, repaired, open) into a picture. |
+| `"Get Bradley's apps.exe" --test-run <folder>` | The window as usual, but it only downloads and checks Cadence, and removes the old Music Tool from a made-up PC it builds in `<folder>\pretend-pc` (folder, shortcuts, a task list and a Recycle Bin, all files there). The real PC's Music Tool, Task Scheduler and Recycle Bin can't be reached in a test run. Add `--auto` to press Install and close by itself, `--tool-running` to have the made-up Music Tool open, `--no-tool` to leave it out. |
+| `"Get Bradley's apps.exe" --shot <state> <png>` | Draws the window in a made-up state (fresh, here, tool, tool-open, tool-closing, tool-left, installing, checking, done, error, damaged, repaired, open) into a picture. |
 
 ## How it is built
 
@@ -62,7 +63,9 @@ C# and Avalonia, the same as Cadence, compiled ahead of time to one native exe t
 
 | File | What it holds |
 |---|---|
-| `src\Apps.cs` | How Cadence is found on the PC, fetched, checked and installed, and the look for the old Music Tool |
+| `src\Apps.cs` | How Cadence is found on the PC, fetched, checked and installed |
+| `src\OldMusicTool.cs` | Finding and removing the old Music Tool, and the made-up PC the tests use |
+| `src\ShellLink.cs` | Reading Windows shortcuts (and writing the made-up ones) |
 | `src\Releases.cs` | GitHub's API, and the way without it |
 | `src\Net.cs` | Downloads with resume and retries, and the log |
 | `src\Verify.cs` | Checksums |

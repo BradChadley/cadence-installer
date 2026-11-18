@@ -249,8 +249,14 @@ public sealed class MainWindow : Window
     readonly Card card = new();
     readonly TextBlock heading = new() { FontSize = 36, FontWeight = FontWeight.Light, Foreground = Ink.Title, FontFamily = Ink.Font, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 4, 0, 6) };
     readonly TextBlock sub = new() { FontSize = 14, Foreground = Ink.Soft, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 24), TextAlignment = TextAlignment.Center };
-    /// <summary>The one line for someone who has the old Music Tool: shown only then.</summary>
-    readonly TextBlock notice = new() { Text = OldMusicTool.Notice, FontSize = 12.5, Foreground = Ink.Soft, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center, MaxWidth = 440, Margin = new Thickness(0, 2, 0, 4), IsVisible = false };
+    /// <summary>The line about the old Music Tool, under the card: shown only when it is on this PC.</summary>
+    readonly TextBlock notice = new() { FontSize = 12.5, Foreground = Ink.Soft, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center, MaxWidth = 480 };
+    readonly TextBlock noticeLink = new() { FontSize = 12.5, Foreground = Ink.Link, Cursor = new Cursor(StandardCursorType.Hand), HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 4, 0, 0), IsVisible = false };
+    readonly StackPanel noticeRow = new() { HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 2, 0, 4), IsVisible = false };
+    Action? noticeAct;
+    /// <summary>Where the old Music Tool is looked for and removed: this PC, or a made-up one in a test run (never both).</summary>
+    ToolPlace? place;
+    bool toolHere, removing;
     readonly Border button;
     readonly TextBlock buttonWord = new() { FontSize = 21, FontFamily = Ink.Font, HorizontalAlignment = HorizontalAlignment.Center };
     readonly Border buttonShine;
@@ -331,7 +337,11 @@ public sealed class MainWindow : Window
         sub.Transitions = [new DoubleTransition { Property = OpacityProperty, Duration = TimeSpan.FromMilliseconds(120) }];
         body.Children.Add(heading); body.Children.Add(sub);
         body.Children.Add(card);
-        body.Children.Add(notice);
+        noticeRow.Children.Add(notice); noticeRow.Children.Add(noticeLink);
+        noticeLink.PointerEntered += (_, _) => noticeLink.TextDecorations = TextDecorations.Underline;
+        noticeLink.PointerExited += (_, _) => noticeLink.TextDecorations = null;
+        noticeLink.PointerReleased += (_, _) => noticeAct?.Invoke();
+        body.Children.Add(noticeRow);
         body.Children.Add(button);
         body.Children.Add(foot);
 
@@ -382,8 +392,16 @@ public sealed class MainWindow : Window
         DispatcherTimer.RunOnce(() => { heading.Text = h; sub.Text = s; heading.Opacity = 1; sub.Opacity = 1; }, TimeSpan.FromMilliseconds(120));
     }
 
-    /// <summary>The line about the old Music Tool, for someone who has it.</summary>
-    public void ShowNotice(bool on) => notice.IsVisible = on;
+    /// <summary>The line about the old Music Tool (null hides it), with one link under it when there is something to do.</summary>
+    public void SayNotice(string? words, IBrush? color = null, string? link = null, Action? act = null)
+    {
+        noticeRow.IsVisible = words != null;
+        notice.Text = words ?? "";
+        notice.Foreground = color ?? Ink.Soft;
+        noticeLink.Text = link ?? "";
+        noticeLink.IsVisible = link != null;
+        noticeAct = act;
+    }
 
     /// <summary>The one loud word: <paramref name="act"/> null shows it dimmed; <paramref name="quiet"/> shows a plain word.</summary>
     public void SetButton(string? word, Action? act, bool quiet = false)
@@ -428,10 +446,29 @@ public sealed class MainWindow : Window
     async Task Start()
     {
         CleanOldWork();
-        var tool = await Task.Run(() => { app.Look(); return OldMusicTool.Here(); });
-        ShowNotice(tool);
+        toolHere = await Task.Run(() =>
+        {
+            app.Look();
+            place = testRun ? PretendPc() : ToolPlace.ThisPc();
+            return OldMusicTool.Here(place);
+        });
+        if (toolHere) SayNotice(OldMusicTool.Notice);
         Refresh();
         await Describe();
+    }
+
+    /// <summary>
+    /// A test run's made-up PC, in the test folder: an old Music Tool with its shortcuts and task, unless --no-tool;
+    /// --tool-running makes it count as open (delete the file "music-tool-is-running" there to close it).
+    /// </summary>
+    ToolPlace PretendPc()
+    {
+        var args = Environment.GetCommandLineArgs();
+        var root = System.IO.Path.Combine(work, "pretend-pc");
+        if (args.Contains("--no-tool")) { if (Directory.Exists(root)) Directory.Delete(root, true); return ToolPlace.Pretend(root); }
+        var p = ToolPlace.MakePretend(root);
+        if (args.Contains("--tool-running")) File.WriteAllText(System.IO.Path.Combine(root, "music-tool-is-running"), "");
+        return p;
     }
 
     /// <summary>The line under Cadence's description once the newest release is known.</summary>
@@ -472,14 +509,12 @@ public sealed class MainWindow : Window
     {
         if (stage != Stage.Ready || primary == null) return;
         primary = null;
-        // an open Cadence is named before anything starts, so nothing is left half done
-        var open = await Task.Run(() => { app.Look(); return app.IsRunning(); });
-        if (open && !testRun)
-        {
-            card.Say("Close Cadence first, then click Install.", Ink.Amber);
-            Refresh();
-            return;
-        }
+        // an open Cadence or Music Tool is named before anything starts, so nothing is left half done
+        var (open, toolOpen) = await Task.Run(() => { app.Look(); return (app.IsRunning(), toolHere && OldMusicTool.Running(place!)); });
+        if (open && !testRun) card.Say("Close Cadence first, then click Install.", Ink.Amber);
+        if (toolOpen) SayNotice("Close Bradley's Music Tool first, then click Install.", Ink.Amber);
+        if ((open && !testRun) || toolOpen) { Refresh(); return; }
+        if (toolHere) SayNotice(OldMusicTool.Notice);
         _ = Run();
     }
 
@@ -490,6 +525,7 @@ public sealed class MainWindow : Window
         SetButton(null, null);
         SetFoot("");
         card.Say("Starting", Ink.Soft);
+        var installed = false;
         try
         {
             Directory.CreateDirectory(work);
@@ -499,6 +535,7 @@ public sealed class MainWindow : Window
             if (testRun) card.Done($"Checked, version {version}. Not installed (test run).");
             else card.Done($"{(card.Damaged ? "Repaired" : "Installed")}, version {version}.", ("Open", Open));
             Log.Write($"Cadence: done, {version}");
+            installed = true;
         }
         catch (OperationCanceledException) { return; }
         catch (NeedsClosing e)
@@ -519,7 +556,41 @@ public sealed class MainWindow : Window
             Log.Write($"Cadence: unexpected: {e}");
             card.Failed("Something went wrong.", false, ("Try again", Again), ("Download page", () => Browse(Cadence.Page)));
         }
+        // the old Music Tool goes only once Cadence is installed and whole; a failed Cadence leaves it as it is
+        if (installed && toolHere) await RemoveTool();
         Finish();
+    }
+
+    /// <summary>Removes the old Music Tool and says how it went on the line under the card.</summary>
+    async Task RemoveTool()
+    {
+        SayNotice("Removing the old Bradley's Music Tool", Ink.Soft);
+        removing = true;
+        try
+        {
+            var left = await Task.Run(() => OldMusicTool.Remove(place!));
+            if (left.Count == 0) SayNotice(OldMusicTool.Removed, Ink.Green);
+            else
+            {
+                Log.Write($"Music Tool: left {string.Join("; ", left)}");
+                SayNotice("Cadence is installed. These are left from the old Music Tool, for you to delete:\n" + string.Join("\n", left), Ink.Amber);
+            }
+        }
+        catch (NeedsClosing e) { SayNotice(e.Message, Ink.Amber, "Try again", RemoveAgain); }
+        catch (Exception e)
+        {
+            Log.Write($"Music Tool: not removed: {e}");
+            SayNotice($"Cadence is installed. The old Music Tool couldn't be removed. It's still here, for you to delete:\n{place!.ProgramFolder}", Ink.Amber);
+        }
+        finally { removing = false; }
+    }
+
+    async void RemoveAgain()
+    {
+        if (closing.IsCancellationRequested || stage == Stage.Working) return;
+        stage = Stage.Working;
+        await RemoveTool();
+        stage = Stage.Finished;
     }
 
     void Again()
@@ -532,6 +603,8 @@ public sealed class MainWindow : Window
     void Finish()
     {
         stage = Stage.Finished;
+        // --auto (test runs only): closes by itself a little after the end, for an unattended test
+        if (testRun && Environment.GetCommandLineArgs().Contains("--auto")) DispatcherTimer.RunOnce(Close, TimeSpan.FromSeconds(3));
         if (card.Tag is "done")
         {
             SetHeading("All set", testRun ? "Test run: downloaded and checked, nothing installed." : "You'll find it in your Start menu.");
@@ -562,7 +635,7 @@ public sealed class MainWindow : Window
     void OnClosing(object? sender, WindowClosingEventArgs e)
     {
         // an installer that has started is never cut off halfway
-        if (stage == Stage.Working && card.Tag is "installing")
+        if ((stage == Stage.Working && card.Tag is "installing") || removing)
         {
             e.Cancel = true;
             SetHeading("Almost done", "Closing is safe in a moment.");

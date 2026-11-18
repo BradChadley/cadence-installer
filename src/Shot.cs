@@ -6,7 +6,7 @@ namespace BradleysApps;
 
 /// <summary>
 /// --shot &lt;state&gt; &lt;png&gt;: the window in a made-up state, drawn into a picture, then closed. For checking the look
-/// without touching the network or the PC. States: fresh, here, tool, installing, checking, done, error, damaged, repaired, open.
+/// without touching the network or the PC. States: fresh, here, tool, tool-open, tool-closing, tool-left, installing, checking, done, error, damaged, repaired, open.
 /// </summary>
 static class Shot
 {
@@ -28,7 +28,23 @@ static class Shot
             case "tool":
                 // someone who has the old Music Tool: the one line under the card
                 card.Say("Version 0.30.0, 98 MB");
-                w.ShowNotice(true);
+                w.SayNotice(OldMusicTool.Notice);
+                break;
+            case "tool-open":
+                card.Say("Version 0.30.0, 98 MB");
+                w.SayNotice("Close Bradley's Music Tool first, then click Install.", Ink.Amber);
+                break;
+            case "tool-left":
+                w.SetHeading("All set", "You'll find it in your Start menu.");
+                w.SetButton("Close", None); w.SetFoot("");
+                card.Done("Installed, version 0.30.0.", ("Open", None));
+                w.SayNotice("Cadence is installed. These are left from the old Music Tool, for you to delete:\n" + @"its nightly backup task in Task Scheduler: Music Backup (nightly)" + "\n" + @"its folder: C:\Users\Someone\AppData\Local\Programs\Bradley's Music Tool", Ink.Amber);
+                break;
+            case "tool-closing":
+                w.SetHeading("All set", "You'll find it in your Start menu.");
+                w.SetButton("Close", None); w.SetFoot("");
+                card.Done("Installed, version 0.30.0.", ("Open", None));
+                w.SayNotice("Close Bradley's Music Tool to finish removing it.", Ink.Amber, "Try again", None);
                 break;
             case "installing":
                 Working();
@@ -43,6 +59,7 @@ static class Shot
                 w.SetHeading("All set", "You'll find it in your Start menu.");
                 w.SetButton("Close", None); w.SetFoot("");
                 card.Done("Installed, version 0.30.0.", ("Open", None));
+                w.SayNotice(OldMusicTool.Removed, Ink.Green);
                 break;
             case "error":
                 w.SetHeading("Not installed", "It didn't finish.");
