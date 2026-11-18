@@ -25,6 +25,7 @@ static class Ink
     public static readonly IBrush Title = Of("#F4F1F6");
     public static readonly IBrush Soft = Of("#A09CA8");
     public static readonly IBrush Meta = Of("#8B8794");
+    public static readonly IBrush Accent = Of("#C38A9B");
     public static readonly IBrush Link = Of("#D9A3BB");
     public static readonly IBrush Green = Of("#86D3A3");
     public static readonly IBrush Red = Of("#EC8E8E");
@@ -257,6 +258,10 @@ public sealed class MainWindow : Window
     /// <summary>Where the old Music Tool is looked for and removed: this PC, or a made-up one in a test run (never both).</summary>
     ToolPlace? place;
     bool toolHere, removing;
+    /// <summary>The checkbox for removing the old Music Tool: ticked to start with, shown only when it is here.</summary>
+    readonly Border choice, box;
+    readonly Path tick;
+    bool removeChosen = true;
     readonly Border button;
     readonly TextBlock buttonWord = new() { FontSize = 21, FontFamily = Ink.Font, HorizontalAlignment = HorizontalAlignment.Center };
     readonly Border buttonShine;
@@ -342,6 +347,16 @@ public sealed class MainWindow : Window
         noticeLink.PointerExited += (_, _) => noticeLink.TextDecorations = null;
         noticeLink.PointerReleased += (_, _) => noticeAct?.Invoke();
         body.Children.Add(noticeRow);
+        tick = new Path { Data = Geometry.Parse("M3.5,8.2 L6.6,11.2 L12.5,4.8"), Stroke = Ink.Canvas, StrokeThickness = 2, StrokeLineCap = PenLineCap.Round, StrokeJoin = PenLineJoin.Round, Width = 16, Height = 16 };
+        box = new Border { Width = 16, Height = 16, CornerRadius = new CornerRadius(4), BorderThickness = new Thickness(1.5), Child = tick, VerticalAlignment = VerticalAlignment.Center };
+        var choiceRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 9 };
+        choiceRow.Children.Add(box);
+        choiceRow.Children.Add(new TextBlock { Text = OldMusicTool.Choice, FontSize = 13, Foreground = Ink.Soft, VerticalAlignment = VerticalAlignment.Center });
+        choice = new Border { Child = choiceRow, Background = Brushes.Transparent, Padding = new Thickness(6, 4), HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 2), Cursor = new Cursor(StandardCursorType.Hand), Focusable = true, IsVisible = false };
+        choice.PointerReleased += (_, e) => { if (e.InitialPressMouseButton == MouseButton.Left) SetChoice(!removeChosen); };
+        choice.KeyDown += (_, e) => { if (e.Key == Key.Space) { SetChoice(!removeChosen); e.Handled = true; } };
+        body.Children.Insert(body.Children.IndexOf(noticeRow), choice);
+        SetChoice(true);
         body.Children.Add(button);
         body.Children.Add(foot);
 
@@ -391,6 +406,19 @@ public sealed class MainWindow : Window
         heading.Opacity = 0; sub.Opacity = 0;
         DispatcherTimer.RunOnce(() => { heading.Text = h; sub.Text = s; heading.Opacity = 1; sub.Opacity = 1; }, TimeSpan.FromMilliseconds(120));
     }
+
+    /// <summary>Ticks or unticks the box (only before Install is pressed).</summary>
+    public void SetChoice(bool on)
+    {
+        if (stage != Stage.Ready) return;
+        removeChosen = on;
+        tick.IsVisible = on;
+        box.Background = on ? Ink.Accent : Brushes.Transparent;
+        box.BorderBrush = on ? Ink.Accent : Ink.Meta;
+    }
+
+    /// <summary>Shows the checkbox (the Music Tool is here) or hides it.</summary>
+    public void ShowChoice(bool on) => choice.IsVisible = on;
 
     /// <summary>The line about the old Music Tool (null hides it), with one link under it when there is something to do.</summary>
     public void SayNotice(string? words, IBrush? color = null, string? link = null, Action? act = null)
@@ -452,7 +480,7 @@ public sealed class MainWindow : Window
             place = testRun ? PretendPc() : ToolPlace.ThisPc();
             return OldMusicTool.Here(place);
         });
-        if (toolHere) SayNotice(OldMusicTool.Notice);
+        ShowChoice(toolHere);
         Refresh();
         await Describe();
     }
@@ -509,18 +537,17 @@ public sealed class MainWindow : Window
     {
         if (stage != Stage.Ready || primary == null) return;
         primary = null;
-        // an open Cadence or Music Tool is named before anything starts, so nothing is left half done
-        var (open, toolOpen) = await Task.Run(() => { app.Look(); return (app.IsRunning(), toolHere && OldMusicTool.Running(place!)); });
-        if (open && !testRun) card.Say("Close Cadence first, then click Install.", Ink.Amber);
-        if (toolOpen) SayNotice("Close Bradley's Music Tool first, then click Install.", Ink.Amber);
-        if ((open && !testRun) || toolOpen) { Refresh(); return; }
-        if (toolHere) SayNotice(OldMusicTool.Notice);
+        // an open Cadence is named before anything starts, so nothing is left half done (an open Music Tool never
+        // holds Cadence up: its removal waits until after, with Try again)
+        var open = await Task.Run(() => { app.Look(); return app.IsRunning(); });
+        if (open && !testRun) { card.Say("Close Cadence first, then click Install.", Ink.Amber); Refresh(); return; }
         _ = Run();
     }
 
     async Task Run()
     {
         stage = Stage.Working;
+        choice.Opacity = 0.6; choice.Cursor = new Cursor(StandardCursorType.Arrow);
         SetHeading("Installing", "You can keep using your PC. This takes about a minute.");
         SetButton(null, null);
         SetFoot("");
@@ -557,34 +584,28 @@ public sealed class MainWindow : Window
             card.Failed("Something went wrong.", false, ("Try again", Again), ("Download page", () => Browse(Cadence.Page)));
         }
         // the old Music Tool goes only once Cadence is installed and whole; a failed Cadence leaves it as it is
-        if (installed && toolHere) await RemoveTool();
+        if (installed && toolHere && removeChosen) await RemoveTool();
+        else Log.Write($"Music Tool: {(!toolHere ? "not here" : !removeChosen ? "kept: the box was unticked" : "kept: Cadence didn't install")}");
+        // once Cadence is in, the box has done its job (a failed Cadence keeps it, dimmed, for Try again)
+        if (installed) ShowChoice(false);
         Finish();
     }
 
-    /// <summary>Removes the old Music Tool and says how it went on the line under the card.</summary>
+    /// <summary>Removes the old Music Tool (only ever called after Cadence installed and passed its checks) and says how it went.</summary>
     async Task RemoveTool()
     {
-        SayNotice("Removing the old Bradley's Music Tool", Ink.Soft);
+        ShowChoice(false);
+        SayNotice("Removing the old Music Tool", Ink.Soft);
         removing = true;
         try
         {
-            var left = await Task.Run(() => OldMusicTool.Remove(place!));
-            if (left.Count == 0) SayNotice(OldMusicTool.Removed, Ink.Green);
-            else
-            {
-                Log.Write($"Music Tool: left {string.Join("; ", left)}");
-                SayNotice("Cadence is installed. These are left from the old Music Tool, for you to delete:\n" + string.Join("\n", left), Ink.Amber);
-            }
-        }
-        catch (NeedsClosing e) { SayNotice(e.Message, Ink.Amber, "Try again", RemoveAgain); }
-        catch (Exception e)
-        {
-            Log.Write($"Music Tool: not removed: {e}");
-            SayNotice($"Cadence is installed. The old Music Tool couldn't be removed. It's still here, for you to delete:\n{place!.ProgramFolder}", Ink.Amber);
+            var o = await Task.Run(() => OldMusicTool.AfterInstall(place!, toolHere, removeChosen, cadenceInstalled: true));
+            if (o.Line == null) SayNotice(null);
+            else if (o.Retry) SayNotice(o.Line, Ink.Amber, "Try again", RemoveAgain);
+            else SayNotice(o.Line, o.Amber ? Ink.Amber : Ink.Green);
         }
         finally { removing = false; }
     }
-
     async void RemoveAgain()
     {
         if (closing.IsCancellationRequested || stage == Stage.Working) return;

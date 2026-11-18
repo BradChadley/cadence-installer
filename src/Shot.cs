@@ -6,7 +6,7 @@ namespace BradleysApps;
 
 /// <summary>
 /// --shot &lt;state&gt; &lt;png&gt;: the window in a made-up state, drawn into a picture, then closed. For checking the look
-/// without touching the network or the PC. States: fresh, here, tool, tool-open, tool-closing, tool-left, installing, checking, done, error, damaged, repaired, open.
+/// without touching the network or the PC. States: fresh, here, tool, tool-off, tool-closing, tool-left, installing, checking, done, error, damaged, repaired, open.
 /// </summary>
 static class Shot
 {
@@ -26,25 +26,25 @@ static class Shot
                 w.SetFoot("Install puts the newest version over the one here.");
                 break;
             case "tool":
-                // someone who has the old Music Tool: the one line under the card
+                // someone who has the old Music Tool: the box under the card, ticked
                 card.Say("Version 0.30.0, 98 MB");
-                w.SayNotice(OldMusicTool.Notice);
+                w.ShowChoice(true);
                 break;
-            case "tool-open":
+            case "tool-off":
                 card.Say("Version 0.30.0, 98 MB");
-                w.SayNotice("Close Bradley's Music Tool first, then click Install.", Ink.Amber);
+                w.ShowChoice(true); w.SetChoice(false);
                 break;
             case "tool-left":
                 w.SetHeading("All set", "You'll find it in your Start menu.");
                 w.SetButton("Close", None); w.SetFoot("");
                 card.Done("Installed, version 0.30.0.", ("Open", None));
-                w.SayNotice("Cadence is installed. These are left from the old Music Tool, for you to delete:\n" + @"its nightly backup task in Task Scheduler: Music Backup (nightly)" + "\n" + @"its folder: C:\Users\Someone\AppData\Local\Programs\Bradley's Music Tool", Ink.Amber);
+                w.SayNotice("Removed only part of the old Music Tool (a file may be in use). Its Start menu shortcut and its desktop shortcut are in the Recycle Bin. Its nightly backup task is gone. Still here, for you to delete:\n" + @"its folder: C:\Users\Someone\AppData\Local\Programs\Bradley's Music Tool", Ink.Amber);
                 break;
             case "tool-closing":
                 w.SetHeading("All set", "You'll find it in your Start menu.");
                 w.SetButton("Close", None); w.SetFoot("");
                 card.Done("Installed, version 0.30.0.", ("Open", None));
-                w.SayNotice("Close Bradley's Music Tool to finish removing it.", Ink.Amber, "Try again", None);
+                w.SayNotice("The old Music Tool is open, so it wasn't removed. Close it, then click Try again.", Ink.Amber, "Try again", None);
                 break;
             case "installing":
                 Working();
@@ -59,7 +59,7 @@ static class Shot
                 w.SetHeading("All set", "You'll find it in your Start menu.");
                 w.SetButton("Close", None); w.SetFoot("");
                 card.Done("Installed, version 0.30.0.", ("Open", None));
-                w.SayNotice(OldMusicTool.Removed, Ink.Green);
+                w.SayNotice("Removed the old Music Tool. Its Start menu shortcut, its desktop shortcut, and its folder are in the Recycle Bin. Its nightly backup task is gone.", Ink.Green);
                 break;
             case "error":
                 w.SetHeading("Not installed", "It didn't finish.");

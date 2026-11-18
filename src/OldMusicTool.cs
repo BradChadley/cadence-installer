@@ -185,16 +185,16 @@ public sealed partial class ToolPlace
 }
 
 /// <summary>
-/// Bradley's Music Tool, which this used to install too. It is part of Cadence now (0.30.0), so after Cadence is
-/// installed and checked, the old copy this put on the PC is removed: its program folder and shortcuts go to the
+/// Bradley's Music Tool, which this used to install too. It is part of Cadence now (0.30.0), so when the person leaves
+/// the box ticked, after Cadence is installed and checked, the old copy this put on the PC is removed: its program folder and shortcuts go to the
 /// Recycle Bin, and its nightly backup task is removed when it runs that program. Its settings (music-recs) stay.
 /// </summary>
 public static class OldMusicTool
 {
     public const string ExeName = "bradleys-music-tool.exe";
     public const string TaskName = "Music Backup (nightly)";
-    public const string Notice = "Also removes the old Bradley's Music Tool. Its tools are part of Cadence now.";
-    public const string Removed = "Removed the old Bradley's Music Tool.";
+    /// <summary>The checkbox under the card, ticked to start with; shown only when the Music Tool is here.</summary>
+    public const string Choice = "Also remove the old Music Tool (it now lives in Cadence)";
 
     public static bool Inside(string path, string folder)
     {
@@ -230,7 +230,7 @@ public static class OldMusicTool
         try
         {
             var here = File.Exists(Path.Combine(place.ProgramFolder, ExeName)) || Links(place).Any(l => Inside(l, place.StartMenu));
-            Log.Write($"Music Tool: {(here ? "on this PC, so it will be removed after Cadence" : "not on this PC")}");
+            Log.Write($"Music Tool: {(here ? "on this PC, so removing it is offered" : "not on this PC")}");
             return here;
         }
         catch (Exception e) { Log.Write($"Music Tool: looking for it failed: {e.Message}"); return false; }
@@ -248,38 +248,81 @@ public static class OldMusicTool
         else lines.Add($"would leave the task \"{TaskName}\": it runs {(program.Length == 0 ? "something unreadable" : program)}, not the Music Tool in its folder");
         foreach (var l in Links(place)) lines.Add($"would recycle the shortcut {l}");
         if (Directory.Exists(place.ProgramFolder)) lines.Add($"would recycle the folder {place.ProgramFolder}");
-        if (Running(place)) lines.Add("it is running now, so Install would ask to close it first");
+        if (Running(place)) lines.Add("it is running now, so after Cadence installs, removing it would wait for it to close (Try again)");
         return lines;
     }
 
+    /// <summary>What a removal did: plain names of what went, and what is left with where it is.</summary>
+    public sealed record Result(List<string> Removed, List<string> Left);
+
     /// <summary>
     /// Removes it. Call only after Cadence is installed and checked. Throws <see cref="NeedsClosing"/> while it runs
-    /// (nothing is changed then). Returns what is left, in plain words with where it is; empty when all went.
+    /// (nothing is changed then). Each step stands alone: one that fails is named in <see cref="Result.Left"/>.
     /// </summary>
-    public static List<string> Remove(ToolPlace place)
+    public static Result Remove(ToolPlace place)
     {
-        if (Running(place)) throw new NeedsClosing("Close Bradley's Music Tool to finish removing it.");
+        if (Running(place)) throw new NeedsClosing("it's open");
+        var removed = new List<string>();
         var left = new List<string>();
         // the task first, so it never runs against a missing program
         var program = place.TaskProgram(TaskName);
         if (program != null && Inside(program, place.ProgramFolder))
         {
-            if (place.DeleteTask(TaskName)) Log.Write($"Music Tool: task \"{TaskName}\" removed");
+            if (place.DeleteTask(TaskName)) { removed.Add("its nightly backup task"); Log.Write($"Music Tool: task \"{TaskName}\" removed"); }
             else left.Add($"its nightly backup task in Task Scheduler: {TaskName}");
         }
         else if (program != null) Log.Write($"Music Tool: task \"{TaskName}\" runs {program}, not the Music Tool in its folder: left as it is");
         foreach (var lnk in Links(place))
         {
-            if (Gone(place, lnk)) Log.Write($"Music Tool: shortcut {lnk} recycled");
-            else left.Add($"a shortcut: {lnk}");
+            var what = Inside(lnk, place.StartMenu) ? "its Start menu shortcut" : "its desktop shortcut";
+            if (Gone(place, lnk)) { removed.Add(what); Log.Write($"Music Tool: shortcut {lnk} recycled"); }
+            else left.Add($"{what}: {lnk}");
         }
         if (Directory.Exists(place.ProgramFolder))
         {
-            if (Gone(place, place.ProgramFolder)) Log.Write($"Music Tool: folder {place.ProgramFolder} recycled");
+            if (Gone(place, place.ProgramFolder)) { removed.Add("its folder"); Log.Write($"Music Tool: folder {place.ProgramFolder} recycled"); }
             else left.Add($"its folder: {place.ProgramFolder}");
         }
-        return left;
+        return new Result(removed, left);
     }
+
+    /// <summary>The line the window shows once Cadence is done; Amber means something was skipped or left; Retry offers "Try again".</summary>
+    public sealed record Outcome(string? Line, bool Amber, bool Retry);
+
+    /// <summary>
+    /// The one place that decides, after Cadence's install: nothing at all unless the Music Tool is here, the person left
+    /// the box ticked, and Cadence installed and passed its checks. A removal that fails only changes this line: Cadence
+    /// stays installed.
+    /// </summary>
+    public static Outcome AfterInstall(ToolPlace place, bool here, bool chosen, bool cadenceInstalled)
+    {
+        if (!here || !chosen || !cadenceInstalled)
+        {
+            Log.Write($"Music Tool: not removed ({(!here ? "not on this PC" : !chosen ? "the box was unticked" : "Cadence didn't install")})");
+            return new Outcome(null, false, false);
+        }
+        try
+        {
+            var r = Remove(place);
+            var recycled = r.Removed.Where(x => x != "its nightly backup task").ToList();
+            var bin = recycled.Count > 0 ? $" {Capital(List(recycled))} {(recycled.Count == 1 ? "is" : "are")} in the Recycle Bin." : "";
+            var task = r.Removed.Contains("its nightly backup task") ? " Its nightly backup task is gone." : "";
+            if (r.Left.Count == 0) return new Outcome($"Removed the old Music Tool.{bin}{task}", false, false);
+            return new Outcome($"Removed only part of the old Music Tool (a file may be in use).{bin}{task} Still here, for you to delete:\n{string.Join("\n", r.Left)}", true, false);
+        }
+        catch (NeedsClosing)
+        {
+            return new Outcome("The old Music Tool is open, so it wasn't removed. Close it, then click Try again.", true, true);
+        }
+        catch (Exception e)
+        {
+            Log.Write($"Music Tool: not removed: {e}");
+            return new Outcome($"The old Music Tool wasn't removed ({e.Message}). It's still in {place.ProgramFolder}.", true, false);
+        }
+    }
+
+    static string List(List<string> items) => items.Count switch { 1 => items[0], 2 => $"{items[0]} and {items[1]}", _ => string.Join(", ", items[..^1]) + ", and " + items[^1] };
+    static string Capital(string s) => s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s[1..];
 
     static bool Gone(ToolPlace place, string path)
     {

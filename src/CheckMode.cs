@@ -42,7 +42,7 @@ public static class CheckMode
         var place = ToolPlace.ThisPc();
         if (OldMusicTool.Here(place))
         {
-            Console.WriteLine($"Bradley's Music Tool: on this PC. The window says: {OldMusicTool.Notice} After Cadence installs, it:");
+            Console.WriteLine($"Bradley's Music Tool: on this PC. The window shows a ticked box, \"{OldMusicTool.Choice}\". Left ticked, after Cadence installs, it:");
             foreach (var line in OldMusicTool.Plan(place)) Console.WriteLine($"  {line}");
             Console.WriteLine("  (nothing was removed: --check only reports)");
         }
@@ -137,53 +137,60 @@ public static class HealthTest
     {
         Options.TestFolder = Path.GetDirectoryName(root);
         Console.WriteLine("Removing the old Music Tool (a made-up PC)");
-        var before = 0;
-        void Expect(bool ok, string what) { Console.WriteLine($"  {(ok ? "ok" : "NOT OK")}: {what}"); if (!ok) before++; }
+        var failed = 0;
+        void Expect(bool ok, string what) { Console.WriteLine($"  {(ok ? "ok" : "NOT OK")}: {what}"); if (!ok) failed++; }
         bool Refused(Action a) { try { a(); return false; } catch (InvalidOperationException) { return true; } }
 
         Expect(Refused(() => ToolPlace.ThisPc()), "in a test, the real PC can't be reached");
         var p = ToolPlace.MakePretend(root);
         Expect(Refused(() => p.Guard(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData))), "a path outside the made-up PC is refused");
-        var exe = Path.Combine(p.ProgramFolder, OldMusicTool.ExeName);
         var settings = Path.Combine(root, "AppData", "Local", "music-recs", "settings.json");
         var tasks = Path.Combine(root, "Task Scheduler");
-        Expect(OldMusicTool.Here(p), "found");
-        Expect(OldMusicTool.Plan(p).Count == 4, $"the plan names the task, two shortcuts and the folder: {string.Join(" | ", OldMusicTool.Plan(p))}");
-        Expect(File.Exists(exe), "planning changed nothing");
+        var task = Path.Combine(tasks, OldMusicTool.TaskName + ".txt");
+        string Snapshot() => string.Join("|", Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories).Select(f => f[root.Length..]).Order());
+        Expect(OldMusicTool.Here(p), "found: the box shows");
+        Expect(OldMusicTool.Plan(p).Count == 4, $"the plan names the task, two shortcuts and the folder ({OldMusicTool.Plan(p).Count} lines)");
 
+        // unticked: nothing at all is touched
+        var before = Snapshot();
+        var o = OldMusicTool.AfterInstall(p, here: true, chosen: false, cadenceInstalled: true);
+        Expect(o.Line == null && Snapshot() == before, "found and unticked: no line, nothing touched");
+
+        // Cadence didn't install: nothing is touched either
+        o = OldMusicTool.AfterInstall(p, here: true, chosen: true, cadenceInstalled: false);
+        Expect(o.Line == null && Snapshot() == before, "Cadence didn't install: nothing touched");
+
+        // open: skipped with Try again, nothing touched (Cadence's install is never held up by it)
         File.WriteAllText(Path.Combine(root, "music-tool-is-running"), "");
-        string? said = null;
-        try { OldMusicTool.Remove(p); } catch (NeedsClosing e) { said = e.Message; }
-        Expect(said == "Close Bradley's Music Tool to finish removing it." && File.Exists(exe) && File.Exists(Path.Combine(tasks, OldMusicTool.TaskName + ".txt")), $"while it runs: asks to close it, changes nothing (\"{said}\")");
+        before = Snapshot();
+        o = OldMusicTool.AfterInstall(p, true, true, true);
+        Expect(o.Retry && o.Amber && Snapshot() == before, $"open: \"{o.Line}\", Try again, nothing touched");
         File.Delete(Path.Combine(root, "music-tool-is-running"));
 
-        var left = OldMusicTool.Remove(p);
-        Expect(left.Count == 0, $"removed, nothing left{(left.Count > 0 ? ": " + string.Join("; ", left) : "")}");
+        // ticked: all of it goes, and the line says where
+        o = OldMusicTool.AfterInstall(p, true, true, true);
+        Expect(!o.Amber && o.Line!.StartsWith("Removed the old Music Tool.") && o.Line.Contains("Recycle Bin"), $"found and ticked: \"{o.Line}\"");
         Expect(!Directory.Exists(p.ProgramFolder) && Directory.EnumerateDirectories(Path.Combine(root, "Recycle Bin")).Any(), "the folder went to the Recycle Bin");
         Expect(!File.Exists(Path.Combine(p.StartMenu, "Bradley's Music Tool.lnk")) && !File.Exists(Path.Combine(p.Desktop, "Bradley's Music Tool.lnk")), "its Start menu and desktop shortcuts went too");
         Expect(File.Exists(Path.Combine(p.Desktop, "Something else.lnk")), "another shortcut stays");
-        Expect(!File.Exists(Path.Combine(tasks, OldMusicTool.TaskName + ".txt")) && File.Exists(Path.Combine(tasks, "Something else.txt")), "its task is removed, another task stays");
+        Expect(!File.Exists(task) && File.Exists(Path.Combine(tasks, "Something else.txt")), "its task is removed, another task stays");
         Expect(File.Exists(settings), "its settings (music-recs) stay");
-        Expect(!OldMusicTool.Here(p), "not found any more");
+
+        // not found: no box, and nothing to do
+        Expect(!OldMusicTool.Here(p), "not found any more: no box");
+        Expect(OldMusicTool.AfterInstall(p, here: false, chosen: true, cadenceInstalled: true).Line == null, "not found: no line");
 
         // a task of the same name that runs something else (Bradley's own backup script) is left alone
         p = ToolPlace.MakePretend(root, @"C:\Program Files\PowerShell\7\pwsh.exe");
-        left = OldMusicTool.Remove(p);
-        Expect(left.Count == 0 && File.Exists(Path.Combine(tasks, OldMusicTool.TaskName + ".txt")) && !Directory.Exists(p.ProgramFolder), "a task that runs something else stays; the rest goes");
+        o = OldMusicTool.AfterInstall(p, true, true, true);
+        Expect(!o.Amber && File.Exists(task) && !Directory.Exists(p.ProgramFolder), "a task that runs something else stays; the rest goes");
 
-        // a folder that can't be moved (a file held open): the rest goes, and what's left is named with where it is
+        // a step that fails (a file in use): Cadence stays installed, the rest goes, the reason and the place are shown
         p = ToolPlace.MakePretend(root);
         using (File.Open(Path.Combine(p.ProgramFolder, "LICENSE"), FileMode.Open, FileAccess.Read, FileShare.None))
-            left = OldMusicTool.Remove(p);
-        Expect(left.Count == 1 && left[0].Contains(p.ProgramFolder) && !File.Exists(Path.Combine(p.Desktop, "Bradley's Music Tool.lnk")), $"a stuck folder is named: \"{string.Join("; ", left)}\"");
-
-        // no Music Tool: nothing to do
-        p = ToolPlace.MakePretend(root);
-        Directory.Delete(p.ProgramFolder, true);
-        foreach (var l in new[] { Path.Combine(p.StartMenu, "Bradley's Music Tool.lnk"), Path.Combine(p.Desktop, "Bradley's Music Tool.lnk") }) File.Delete(l);
-        Expect(!OldMusicTool.Here(p), "with no Music Tool, nothing is found");
-
+            o = OldMusicTool.AfterInstall(p, true, true, true);
+        Expect(o.Amber && !o.Retry && o.Line!.Contains("in use") && o.Line.Contains(p.ProgramFolder) && !File.Exists(Path.Combine(p.Desktop, "Bradley's Music Tool.lnk")), $"a step failing: \"{o.Line?.Replace("\n", " / ")}\"");
         Options.TestFolder = null;
-        return before;
+        return failed;
     }
 }
