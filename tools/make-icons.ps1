@@ -1,16 +1,15 @@
 <#
-  make-icons.ps1: draws the chooser's own icon (src\Assets\chooser.ico) and turns the two apps' icons into
-  the PNG pictures the cards show (src\Assets\cadence.png, src\Assets\music-tool.png).
-  Run again only when an app's icon changes: copy its new .ico over src\Assets\cadence.ico or
-  src\Assets\bradleys-music-tool.ico first.
+  make-icons.ps1: draws the installer's own icon (src\Assets\chooser.ico) and turns Cadence's icon into the PNG
+  picture the card shows (src\Assets\cadence.png).
+  Run again only when Cadence's icon changes: copy its new .ico over src\Assets\cadence.ico first.
   Run:  pwsh -File tools\make-icons.ps1
 #>
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
 $assets = Join-Path $PSScriptRoot '..\src\Assets' | Resolve-Path | ForEach-Object Path
 
-# The apps' pictures: the largest picture inside each .ico, at 128 pixels.
-foreach ($pair in @(@('cadence.ico', 'cadence.png'), @('bradleys-music-tool.ico', 'music-tool.png'))) {
+# Cadence's picture: the largest picture inside its .ico, at 128 pixels.
+foreach ($pair in @(, @('cadence.ico', 'cadence.png'))) {
     $icon = [System.Drawing.Icon]::new((Join-Path $assets $pair[0]), 256, 256)
     $big = $icon.ToBitmap()
     $out = [System.Drawing.Bitmap]::new(128, 128)
@@ -21,7 +20,7 @@ foreach ($pair in @(@('cadence.ico', 'cadence.png'), @('bradleys-music-tool.ico'
     "$($pair[1]) written"
 }
 
-# The chooser's own icon: a dark rounded tile, two rose dots (two apps) over a line (the shelf they land on).
+# The installer's own icon: a dark rounded tile, a rose arrow coming down onto a line (the shelf it lands on).
 function Draw([int]$s) {
     $b = [System.Drawing.Bitmap]::new($s, $s)
     $g = [System.Drawing.Graphics]::FromImage($b)

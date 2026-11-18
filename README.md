@@ -1,34 +1,35 @@
 # Get Bradley's apps
 
-One small file to give people. They pick Cadence, Bradley's Music Tool, or both, and click Install.
+One small file to give people. It installs Cadence, Bradley's music player, with one click.
 
 **[Download Get Bradley's apps](https://github.com/BradChadley/get-bradleys-apps/releases/latest/download/Get-Bradleys-apps.exe)** (Windows 10 and 11, 64-bit, about 22 MB)
 
 The file is not signed yet, so Windows says "Windows protected your PC" the first time. Click "More info", then "Run anyway".
 
-- **It never needs a new version of its own.** Each time it runs it asks GitHub for the newest release of each app, so a new Cadence or Music Tool release is picked up with nothing to do here.
-- **Each app stays its own app.** Cadence is installed by its own installer (run quietly), so it keeps its own updates and its own line in Windows' Apps list. The Music Tool has no installer: this puts its exe where the Music Tool's own ship script does, `%LOCALAPPDATA%\Programs\Bradley's Music Tool`, with a Start menu and a desktop shortcut, and from then on it updates itself as usual.
-- **ffmpeg comes along.** When the Music Tool is picked and the PC has no ffmpeg, it fetches ffmpeg from its makers' own release, checked against the Music Tool's pin, and puts it where the app looks, so music can be checked and converted from the first start. Which ffmpeg to get is read from the Music Tool release's signed `helpers.json` (see [HELPERS-JSON.md](HELPERS-JSON.md)). If that ever fails, the app offers to get ffmpeg itself.
-- **No admin rights.** Both install for the Windows account only.
-- **Nothing runs unchecked.** Cadence's installer must match the SHA-256 GitHub records for it and the one in the release's `SHA256SUMS.txt` (they must agree). The Music Tool's exe must match the release's `update.json`, which must carry Bradley's signature: the same check, with the same key, the Music Tool's own updater makes. A download that fails is fetched once more, then refused.
+**Bradley's Music Tool is part of Cadence now.** Its recommendations, album downloads and library repairs live in Cadence from version 0.30.0, so this installs only Cadence. Versions 1.0.x of this file also offered the Music Tool. Someone who has the Music Tool from back then sees one line saying so; their copy keeps working, and this never changes or removes it.
+
+- **It never needs a new version of its own.** Each time it runs it asks GitHub for Cadence's newest release, so a new Cadence release is picked up with nothing to do here.
+- **Cadence stays its own app.** It is installed by its own installer (run quietly), so it keeps its own updates and its own line in Windows' Apps list.
+- **No admin rights.** It installs for the Windows account only.
+- **Nothing runs unchecked.** Cadence's installer must match the SHA-256 GitHub records for it and the one in the release's `SHA256SUMS.txt` (they must agree). A download that fails is fetched once more, then refused.
 
 ## What it handles
 
 | When | It does |
 |---|---|
-| An app is already on the PC | Says so ("On this PC, version 0.26.8, the newest.") and leaves it unpicked. Picking it installs the newest version over it. |
-| An app is on the PC but damaged (files missing, or the Music Tool's program spoiled) | Says so in amber ("On this PC, but some of its files are missing. Install repairs it.") and starts picked. Install puts it right, and the end says "Repaired". Settings and the music library live in other folders and are never touched. Only sure signs count, so a working install is never called damaged. |
-| The Music Tool was unpacked somewhere else (say, Documents) | Finds it through its shortcuts or the running program, and updates that copy instead of making a second one. |
-| An app is open | Says "Close Cadence first, then click Install." before anything starts. |
-| GitHub's API is busy (60 questions an hour per address) | Reads the releases from github.com's own "latest" links instead; every check still holds. |
+| Cadence is already on the PC | Says so ("On this PC, version 0.30.0, the newest."). Install puts the newest version over it. |
+| Cadence is on the PC but damaged (files missing) | Says so in amber ("On this PC, but some of its files are missing. Install repairs it."). Install puts it right, and the end says "Repaired". Settings and the music library live in other folders and are never touched. Only sure signs count, so a working install is never called damaged. |
+| The Music Tool is on the PC (in its usual folder, or with its Start menu shortcut) | One plain line: "Bradley's Music Tool is now part of Cadence. Your copy keeps working; you can remove it from Windows' Apps when you like." It only looks: its files, shortcuts and scheduled task stay as they are. |
+| Cadence is open | Says "Close Cadence first, then click Install." before anything starts. |
+| GitHub's API is busy (60 questions an hour per address) | Reads the release from github.com's own "latest" link instead; every check still holds. |
 | The connection drops | Carries on where it stopped, up to five tries; a connection silent for 30 seconds counts as dropped. |
-| Something still fails | A short line on that card with "Try again" and "Download page". The other app carries on. "See what happened" opens the log. |
-| The window is closed while an installer runs | Waits: an install is never cut off halfway. |
-| A release renames its files | Files are found by kind (the one ending `Setup.exe`, the `.zip`, `update.json`), not by exact name. |
+| Something still fails | A short line on the card with "Try again" and "Download page". "See what happened" opens the log. |
+| The window is closed while the installer runs | Waits: an install is never cut off halfway. |
+| A release renames its files | The installer is found by kind (the file ending `Setup.exe`), not by exact name. |
 
 It writes one plain log per run: `%TEMP%\Get Bradley's apps.log`.
 
-**What would need a new build here:** only a change in how an app is published. For example, the Music Tool getting an installer of its own, Cadence leaving Velopack, either moving to another GitHub repository, or the Music Tool's signing key changing. A new key would break the Music Tool's own updates too, so it would not happen quietly.
+**What would need a new build here:** only a change in how Cadence is published. For example, Cadence leaving Velopack or moving to another GitHub repository.
 
 ## Making a new build
 
@@ -38,22 +39,22 @@ Needs the .NET 10 SDK and Visual Studio's "Desktop development with C++". The na
 pwsh -File build.ps1 -Check
 ```
 
-That writes `out\Get Bradley's apps.exe`, about 22 MB, one file that needs nothing installed. `-Check` then downloads and checks both apps into `work\check` and installs nothing. If `dotnet` is not on PATH, pass `-Dotnet <path to dotnet.exe>`.
+That writes `out\Get Bradley's apps.exe`, about 22 MB, one file that needs nothing installed. `-Check` then downloads and checks Cadence into `work\check` and installs nothing. If `dotnet` is not on PATH, pass `-Dotnet <path to dotnet.exe>`.
 
 The build refuses to finish if the exe names this PC's user folder or project folders. Other words it must never contain go in `work\private-words.txt`, one per line. That file stays out of git.
 
-To change an app's picture, copy its new `.ico` over `src\Assets\cadence.ico` or `src\Assets\bradleys-music-tool.ico` and run `pwsh -File tools\make-icons.ps1`. The chooser's own icon is drawn by the same script.
+To change Cadence's picture, copy its new `.ico` over `src\Assets\cadence.ico` and run `pwsh -File tools\make-icons.ps1`. The installer's own icon is drawn by the same script.
 
 ## Trying it without installing anything
 
 | Command | What it does |
 |---|---|
-| `"Get Bradley's apps.exe" --check <folder>` | No window. Checks the signature test, downloads and checks both apps, and places the Music Tool with real shortcuts, all inside `<folder>`. Exit code 0 means all good. |
-| `"Get Bradley's apps.exe" --health <folder>` | No window. The damage checks: this PC's installs must come out whole (it only reads them), and made-up damaged copies in `<folder>` must be caught. |
+| `"Get Bradley's apps.exe" --check <folder>` | No window. Downloads and checks Cadence inside `<folder>`, and says whether the Music Tool line would show. Exit code 0 means all good. |
+| `"Get Bradley's apps.exe" --health <folder>` | No window. The damage check: this PC's Cadence must come out whole (it only reads it), and made-up damaged copies in `<folder>` must be caught. |
 | `... --check <folder> --no-api` | The same, the way used when GitHub's API is busy. |
-| `... --check <folder> --tamper` | Spoils each download. Every check must then refuse it. |
+| `... --check <folder> --tamper` | Spoils the download. The check must then refuse it. |
 | `"Get Bradley's apps.exe" --test-run <folder>` | The window as usual, but it only downloads and checks. Add `--auto` to press Install by itself. |
-| `"Get Bradley's apps.exe" --shot <state> <png>` | Draws the window in a made-up state (fresh, here, installing, checking, done, error, open) into a picture. |
+| `"Get Bradley's apps.exe" --shot <state> <png>` | Draws the window in a made-up state (fresh, here, tool, installing, checking, done, error, damaged, repaired, open) into a picture. |
 
 ## How it is built
 
@@ -61,13 +62,12 @@ C# and Avalonia, the same as Cadence, compiled ahead of time to one native exe t
 
 | File | What it holds |
 |---|---|
-| `src\Apps.cs` | Each app: how it is found on the PC, fetched, checked and installed |
+| `src\Apps.cs` | How Cadence is found on the PC, fetched, checked and installed, and the look for the old Music Tool |
 | `src\Releases.cs` | GitHub's API, and the way without it |
 | `src\Net.cs` | Downloads with resume and retries, and the log |
-| `src\Verify.cs` | Checksums and the Music Tool's signature |
-| `src\ShellLink.cs` | Reading and writing Windows shortcuts |
+| `src\Verify.cs` | Checksums |
 | `src\MainWindow.cs` | The window |
-| `src\CheckMode.cs` | The no-window test |
+| `src\CheckMode.cs` | The no-window tests |
 | `src\Shot.cs` | The pictures |
 | `src\Natives.cs` | Unpacking Skia and HarfBuzz |
 

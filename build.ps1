@@ -4,7 +4,7 @@
 
   Needs: the .NET 10 SDK and Visual Studio's "Desktop development with C++" (the native build uses its linker).
   Run:   pwsh -File build.ps1                       (finds dotnet on PATH, or names it with -Dotnet)
-         pwsh -File build.ps1 -Check                (then downloads and checks both apps into work\check, installing nothing)
+         pwsh -File build.ps1 -Check                (then downloads and checks Cadence into work\check, installing nothing)
 #>
 param(
     [string]$Dotnet,

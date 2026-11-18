@@ -25,45 +25,34 @@ static class Ink
     public static readonly IBrush Title = Of("#F4F1F6");
     public static readonly IBrush Soft = Of("#A09CA8");
     public static readonly IBrush Meta = Of("#8B8794");
-    public static readonly IBrush Accent = Of("#C38A9B");
     public static readonly IBrush Link = Of("#D9A3BB");
     public static readonly IBrush Green = Of("#86D3A3");
     public static readonly IBrush Red = Of("#EC8E8E");
     public static readonly IBrush Amber = Of("#E3C08A");
     public static readonly IBrush Rule = Of("#26262C");
-    public static readonly IBrush RuleHover = Of("#3A3840");
-    public static readonly IBrush RulePicked = Of("#8C6A76");
-    public static readonly IBrush Ring = Of("#4B4752");
     public static readonly FontFamily Font = new("Segoe UI Variable Display, Segoe UI");
     public static readonly FontFamily TextFont = new("Segoe UI Variable Text, Segoe UI");
 }
 
-/// <summary>One app: its picture, name, line, round mark, the line under it while it works, and its links.</summary>
+/// <summary>Cadence: its picture, name, line, the line under it while it works, its links, and a check when it is done.</summary>
 sealed class Card : Border, IReport
 {
-    public readonly App App;
-    public bool Picked { get; private set; }
-    public bool Locked;
     /// <summary>The copy on this PC was found damaged: the end says "Repaired".</summary>
     public bool Damaged;
-    public event Action? Changed;
 
     readonly Image picture = new() { Width = 46, Height = 46, VerticalAlignment = VerticalAlignment.Center };
     readonly TextBlock left = new() { FontSize = 12.5, Foreground = Ink.Meta, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 12, 0), VerticalAlignment = VerticalAlignment.Center };
     readonly StackPanel links = new() { Orientation = Orientation.Horizontal, Spacing = 12, VerticalAlignment = VerticalAlignment.Center };
     readonly TextBlock right = new() { FontSize = 12.5, Foreground = Ink.Soft, VerticalAlignment = VerticalAlignment.Center };
     readonly Panel info = new();
-    readonly Border markGlow, markRing;
-    readonly Ellipse markFill, markDot;
     readonly Path check;
     readonly Border track, fill, head, glider;
     readonly Panel line;
     CancellationTokenSource? gliding;
     double fraction = -1;
 
-    public Card(App app)
+    public Card()
     {
-        App = app;
         CornerRadius = new CornerRadius(14);
         BorderThickness = new Thickness(1);
         BorderBrush = Ink.Rule;
@@ -74,21 +63,11 @@ sealed class Card : Border, IReport
         };
         ClipToBounds = true;
         Margin = new Thickness(0, 0, 0, 12);
-        Cursor = new Cursor(StandardCursorType.Hand);
-        Focusable = true;
-        RenderTransform = TransformOperations.Parse("translateY(0px)");
-        Transitions =
-        [
-            new BrushTransition { Property = BorderBrushProperty, Duration = TimeSpan.FromMilliseconds(160) },
-            new TransformOperationsTransition { Property = RenderTransformProperty, Duration = TimeSpan.FromMilliseconds(160), Easing = new CubicEaseOut() },
-            new DoubleTransition { Property = OpacityProperty, Duration = TimeSpan.FromMilliseconds(200) },
-        ];
 
-        try { picture.Source = new Bitmap(AssetLoader.Open(new Uri($"avares://GetBradleysApps/Assets/{app.Picture}"))); } catch { }
-        picture.Transitions = [new DoubleTransition { Property = OpacityProperty, Duration = TimeSpan.FromMilliseconds(200) }];
+        try { picture.Source = new Bitmap(AssetLoader.Open(new Uri("avares://GetBradleysApps/Assets/cadence.png"))); } catch { }
 
-        var name = new TextBlock { Text = app.Name, FontSize = 18, Foreground = Ink.Title, FontFamily = Ink.Font };
-        var about = new TextBlock { Text = app.Description, FontSize = 13, Foreground = Ink.Soft, TextWrapping = TextWrapping.Wrap, LineHeight = 18.5, Margin = new Thickness(0, 3, 0, 0) };
+        var name = new TextBlock { Text = Cadence.Name, FontSize = 18, Foreground = Ink.Title, FontFamily = Ink.Font };
+        var about = new TextBlock { Text = Cadence.Description, FontSize = 13, Foreground = Ink.Soft, TextWrapping = TextWrapping.Wrap, LineHeight = 18.5, Margin = new Thickness(0, 3, 0, 0) };
         var row = new DockPanel { Margin = new Thickness(0, 7, 0, 0), LastChildFill = true };
         DockPanel.SetDock(right, Dock.Right);
         row.Children.Add(right);
@@ -104,28 +83,18 @@ sealed class Card : Border, IReport
         text.Children.Add(about);
         text.Children.Add(info);
 
-        // the round mark: a ring; picked, it fills in the accent with a dark dot that springs in, and glows a little
-        markGlow = new Border { Width = 22, Height = 22, CornerRadius = new CornerRadius(11), BoxShadow = BoxShadows.Parse("0 0 12 0 #73C38A9B"), Opacity = 0 };
-        markRing = new Border { Width = 22, Height = 22, CornerRadius = new CornerRadius(11), BorderThickness = new Thickness(2), BorderBrush = Ink.Ring };
-        markFill = new Ellipse { Width = 22, Height = 22, Fill = Ink.Accent, Opacity = 0 };
-        markDot = new Ellipse { Width = 8, Height = 8, Fill = Ink.Canvas, RenderTransform = TransformOperations.Parse("scale(0)") };
-        foreach (var t in new Visual[] { markGlow, markFill })
-            ((Animatable)t).Transitions = [new DoubleTransition { Property = OpacityProperty, Duration = TimeSpan.FromMilliseconds(150) }];
-        markRing.Transitions = [new BrushTransition { Property = BorderBrushProperty, Duration = TimeSpan.FromMilliseconds(150) }, new DoubleTransition { Property = OpacityProperty, Duration = TimeSpan.FromMilliseconds(150) }];
-        markDot.Transitions = [new TransformOperationsTransition { Property = RenderTransformProperty, Duration = TimeSpan.FromMilliseconds(240), Easing = new BackEaseOut() }];
+        // the green check that draws itself in once Cadence is installed
         check = new Path
         {
             Data = Geometry.Parse("M5,11.5 L9,15.5 L17.5,6"), Stroke = Ink.Green, StrokeThickness = 2.4,
-            StrokeLineCap = PenLineCap.Round, StrokeJoin = PenLineJoin.Round, Width = 22, Height = 22,
-            StrokeDashArray = new AvaloniaList<double> { 10, 10 }, StrokeDashOffset = 10, IsVisible = false,
+            StrokeLineCap = PenLineCap.Round, StrokeJoin = PenLineJoin.Round, Width = 22, Height = 22, VerticalAlignment = VerticalAlignment.Center,
+            StrokeDashArray = new AvaloniaList<double> { 10, 10 }, StrokeDashOffset = 10, Opacity = 0, // hidden, but its room kept: the text never reflows
             Transitions = [new DoubleTransition { Property = Shape.StrokeDashOffsetProperty, Duration = TimeSpan.FromMilliseconds(300), Easing = new CubicEaseOut() }],
         };
-        var mark = new Panel { Width = 22, Height = 22, VerticalAlignment = VerticalAlignment.Center };
-        mark.Children.Add(markGlow); mark.Children.Add(markRing); mark.Children.Add(markFill); mark.Children.Add(markDot); mark.Children.Add(check);
 
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"), Margin = new Thickness(18, 16, 20, 18) };
-        Grid.SetColumn(text, 1); Grid.SetColumn(mark, 2);
-        grid.Children.Add(picture); grid.Children.Add(text); grid.Children.Add(mark);
+        Grid.SetColumn(text, 1); Grid.SetColumn(check, 2);
+        grid.Children.Add(picture); grid.Children.Add(text); grid.Children.Add(check);
 
         // the thin line along the bottom edge: fills as bytes arrive, with a lit head; glides while there is no measure
         track = new Border { Background = Ink.Of("#0AFFFFFF") };
@@ -146,13 +115,6 @@ sealed class Card : Border, IReport
         root.Children.Add(grid);
         root.Children.Add(line);
         Child = root;
-
-        PointerEntered += (_, _) => Hover(true);
-        PointerExited += (_, _) => Hover(false);
-        PointerReleased += (_, e) => { if (e.InitialPressMouseButton == MouseButton.Left && !Locked && e.Source is not TextBlock { Tag: "link" }) Toggle(); };
-        KeyDown += (_, e) => { if (e.Key is Key.Space && !Locked) { Toggle(); e.Handled = true; } };
-        GotFocus += (_, e) => { if (e.NavigationMethod == NavigationMethod.Tab) BorderBrush = Ink.Link; };
-        LostFocus += (_, _) => Paint();
     }
 
     static LinearGradientBrush Gradient(params string[] stops)
@@ -160,38 +122,6 @@ sealed class Card : Border, IReport
         var b = new LinearGradientBrush { StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative), EndPoint = new RelativePoint(1, 0, RelativeUnit.Relative) };
         for (var i = 0; i < stops.Length; i++) b.GradientStops.Add(new GradientStop(Color.Parse(stops[i]), stops.Length == 1 ? 0 : (double)i / (stops.Length - 1)));
         return b;
-    }
-
-    bool hovering;
-    void Hover(bool on)
-    {
-        hovering = on && !Locked;
-        RenderTransform = TransformOperations.Parse(hovering ? "translateY(-2px)" : "translateY(0px)");
-        Paint();
-    }
-
-    void Paint() => BorderBrush = Picked && !Locked ? Ink.RulePicked : hovering ? Ink.RuleHover : Ink.Rule;
-
-    public void Toggle() => SetPicked(!Picked);
-
-    public void SetPicked(bool on)
-    {
-        Picked = on;
-        markFill.Opacity = on ? 1 : 0;
-        markGlow.Opacity = on ? 1 : 0;
-        markRing.BorderBrush = on ? Ink.Accent : Ink.Ring;
-        markDot.RenderTransform = TransformOperations.Parse(on ? "scale(1)" : "scale(0)");
-        picture.Opacity = on || Locked ? 1 : 0.6;
-        Paint();
-        Changed?.Invoke();
-    }
-
-    public void Lock(bool locked)
-    {
-        Locked = locked;
-        Cursor = new Cursor(locked ? StandardCursorType.Arrow : StandardCursorType.Hand);
-        if (locked) Hover(false);
-        Paint();
     }
 
     // ---------------------------------------------------------------- the info line
@@ -204,7 +134,7 @@ sealed class Card : Border, IReport
         links.Children.Clear();
         foreach (var (word, act) in actions)
         {
-            var t = new TextBlock { Text = word, Foreground = Ink.Link, FontSize = 12.5, Cursor = new Cursor(StandardCursorType.Hand), Tag = "link" };
+            var t = new TextBlock { Text = word, Foreground = Ink.Link, FontSize = 12.5, Cursor = new Cursor(StandardCursorType.Hand) };
             t.PointerEntered += (_, _) => t.TextDecorations = TextDecorations.Underline;
             t.PointerExited += (_, _) => t.TextDecorations = null;
             t.PointerReleased += (_, e) => { e.Handled = true; act(); };
@@ -218,8 +148,6 @@ sealed class Card : Border, IReport
     // ---------------------------------------------------------------- IReport (called from any thread)
 
     long lastHave = -1;
-    string downloadWord = "Downloading";
-    public void Label(string words) => Dispatcher.UIThread.Post(() => { downloadWord = words; lastHave = -1; });
     public void Downloading(long have, long? total) => Dispatcher.UIThread.Post(() =>
     {
         if (have == lastHave) return;
@@ -231,16 +159,16 @@ sealed class Card : Border, IReport
         if (total is > 0 and var t)
         {
             SetFraction((double)have / t);
-            Say(downloadWord, Ink.Soft, $"{Mb(have)} of {Mb(t)} MB");
+            Say("Downloading", Ink.Soft, $"{Mb(have)} of {Mb(t)} MB");
         }
-        else Say(downloadWord, Ink.Soft, $"{Mb(have)} MB");
+        else Say("Downloading", Ink.Soft, $"{Mb(have)} MB");
     });
 
     public void Step(string words) => Dispatcher.UIThread.Post(() =>
     {
         Tag = words == "Installing" ? "installing" : "working";
         lastHave = -1;
-        Say(words switch { "Waiting" => "Waiting for the other install to finish", _ => words }, Ink.Soft);
+        Say(words, Ink.Soft);
         line.Opacity = 1;
         fill.Width = 0; fraction = -1;
         StartGliding();
@@ -288,8 +216,7 @@ sealed class Card : Border, IReport
         StopGliding();
         line.Opacity = 0;
         Say(words, Ink.Green, "", actions);
-        markFill.Opacity = 0; markGlow.Opacity = 0; markRing.Opacity = 0; markDot.RenderTransform = TransformOperations.Parse("scale(0)");
-        check.IsVisible = true;
+        check.Opacity = 1;
         Dispatcher.UIThread.Post(() => check.StrokeDashOffset = 0, DispatcherPriority.Background);
     }
 
@@ -312,16 +239,18 @@ sealed class Card : Border, IReport
         Tag = null;
         StopGliding();
         line.Opacity = 0; fill.Width = 0; fraction = -1; lastHave = -1;
-        check.IsVisible = false; check.StrokeDashOffset = 10; markRing.Opacity = 1;
-        SetPicked(true);
+        check.Opacity = 0; check.StrokeDashOffset = 10;
     }
 }
 
 public sealed class MainWindow : Window
 {
-    readonly Card[] cards;
+    readonly Cadence app = new();
+    readonly Card card = new();
     readonly TextBlock heading = new() { FontSize = 36, FontWeight = FontWeight.Light, Foreground = Ink.Title, FontFamily = Ink.Font, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 4, 0, 6) };
     readonly TextBlock sub = new() { FontSize = 14, Foreground = Ink.Soft, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 24), TextAlignment = TextAlignment.Center };
+    /// <summary>The one line for someone who has the old Music Tool: shown only then.</summary>
+    readonly TextBlock notice = new() { Text = OldMusicTool.Notice, FontSize = 12.5, Foreground = Ink.Soft, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center, MaxWidth = 440, Margin = new Thickness(0, 2, 0, 4), IsVisible = false };
     readonly Border button;
     readonly TextBlock buttonWord = new() { FontSize = 21, FontFamily = Ink.Font, HorizontalAlignment = HorizontalAlignment.Center };
     readonly Border buttonShine;
@@ -329,10 +258,9 @@ public sealed class MainWindow : Window
     readonly CancellationTokenSource closing = new();
     readonly string work;
     readonly bool testRun = Options.TestFolder != null;
-    enum Stage { Choosing, Working, Finished }
-    Stage stage = Stage.Choosing;
+    enum Stage { Ready, Working, Finished }
+    Stage stage = Stage.Ready;
     Action? primary;
-    int running;
 
     static readonly IBrush ButtonOn = new LinearGradientBrush
     {
@@ -355,7 +283,6 @@ public sealed class MainWindow : Window
         try { Icon = new WindowIcon(AssetLoader.Open(new Uri("avares://GetBradleysApps/Assets/chooser.ico"))); } catch { }
 
         work = Options.TestFolder ?? System.IO.Path.Combine(System.IO.Path.GetTempPath(), "GetBradleysApps", Environment.ProcessId.ToString());
-        cards = [new Card(new Cadence()), new Card(new MusicTool())];
 
         // the soft rose light at the top
         var glow = new Border
@@ -403,7 +330,8 @@ public sealed class MainWindow : Window
         heading.Transitions = [new DoubleTransition { Property = OpacityProperty, Duration = TimeSpan.FromMilliseconds(120) }];
         sub.Transitions = [new DoubleTransition { Property = OpacityProperty, Duration = TimeSpan.FromMilliseconds(120) }];
         body.Children.Add(heading); body.Children.Add(sub);
-        foreach (var c in cards) { body.Children.Add(c); c.Changed += Refresh; }
+        body.Children.Add(card);
+        body.Children.Add(notice);
         body.Children.Add(button);
         body.Children.Add(foot);
 
@@ -414,9 +342,9 @@ public sealed class MainWindow : Window
         root.Children.Add(glow); root.Children.Add(layout);
         Content = root;
 
-        heading.Text = "Bradley's apps";
-        sub.Text = "Pick what you'd like. Each one keeps itself up to date.";
-        foreach (var c in cards) { c.SetPicked(true); c.Say("Looking for the newest version"); }
+        heading.Text = "Get Cadence";
+        sub.Text = "One click, and it keeps itself up to date.";
+        card.Say("Looking for the newest version");
 
         KeyDown += (_, e) =>
         {
@@ -426,10 +354,10 @@ public sealed class MainWindow : Window
         Closing += OnClosing;
         Opened += async (_, _) =>
         {
-            if (Options.ShotState != null) { await Shot.Take(this, cards, Options.ShotState, Options.ShotFile!); return; }
+            if (Options.ShotState != null) { await Shot.Take(this, card, Options.ShotState, Options.ShotFile!); return; }
             await Start();
-            // --auto (only with --test-run): presses Install once the newest versions are known, for an unattended test
-            if (testRun && Environment.GetCommandLineArgs().Contains("--auto")) { await Task.Delay(600); foreach (var c in cards) c.SetPicked(true); Install(); }
+            // --auto (only with --test-run): presses Install once the newest version is known, for an unattended test
+            if (testRun && Environment.GetCommandLineArgs().Contains("--auto")) { await Task.Delay(600); Install(); }
         };
         Refresh();
     }
@@ -445,7 +373,7 @@ public sealed class MainWindow : Window
         return b;
     }
 
-    // ---------------------------------------------------------------- the words at the top, the button, the line under it
+    // ---------------------------------------------------------------- the words at the top, the button, the lines under it
 
     public void SetHeading(string h, string s)
     {
@@ -453,6 +381,9 @@ public sealed class MainWindow : Window
         heading.Opacity = 0; sub.Opacity = 0;
         DispatcherTimer.RunOnce(() => { heading.Text = h; sub.Text = s; heading.Opacity = 1; sub.Opacity = 1; }, TimeSpan.FromMilliseconds(120));
     }
+
+    /// <summary>The line about the old Music Tool, for someone who has it.</summary>
+    public void ShowNotice(bool on) => notice.IsVisible = on;
 
     /// <summary>The one loud word: <paramref name="act"/> null shows it dimmed; <paramref name="quiet"/> shows a plain word.</summary>
     public void SetButton(string? word, Action? act, bool quiet = false)
@@ -485,12 +416,11 @@ public sealed class MainWindow : Window
 
     void Refresh()
     {
-        if (stage != Stage.Choosing) return;
-        var any = cards.Any(c => c.Picked);
-        SetButton("Install", any ? Install : null);
+        if (stage != Stage.Ready) return;
+        SetButton("Install", Install);
         if (testRun) SetFoot("Test run: downloads and checks only, installs nothing.");
-        else if (!any && cards.All(c => c.App.Here != null)) SetFoot("Pick one to install the newest version over it.");
-        else SetFoot(any ? "No admin rights needed." : "Pick at least one.");
+        else if (app.Here != null && !card.Damaged) SetFoot("Install puts the newest version over the one here.");
+        else SetFoot("No admin rights needed.");
     }
 
     // ---------------------------------------------------------------- what happens
@@ -498,176 +428,125 @@ public sealed class MainWindow : Window
     async Task Start()
     {
         CleanOldWork();
-        await Task.WhenAll(cards.Select(c => Task.Run(c.App.Look)));
-        foreach (var c in cards) c.SetPicked(c.App.Here == null);
+        var tool = await Task.Run(() => { app.Look(); return OldMusicTool.Here(); });
+        ShowNotice(tool);
         Refresh();
-        await Task.WhenAll(cards.Select(Describe));
+        await Describe();
     }
 
-    /// <summary>The line under an app's description once the newest release is known.</summary>
-    async Task Describe(Card c)
+    /// <summary>The line under Cadence's description once the newest release is known.</summary>
+    async Task Describe()
     {
-        var app = c.App;
         try
         {
             var r = await app.Newest(closing.Token);
-            if (stage != Stage.Choosing) return;
-            var size = app is Cadence ? r.Find(n => n.EndsWith("Setup.exe", StringComparison.OrdinalIgnoreCase))?.Size
-                : (r.Find(n => n.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) ?? r.Find(n => n.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)))?.Size;
-            var sized = size is > 0 and var s ? $", {Math.Max(1, Math.Round(s / 1048576.0)):0} MB" : "";
+            if (stage != Stage.Ready) return;
             if (app.Here is { } h)
             {
-                var where = Where(h.Folder);
-                var at = where == null ? "On this PC" : $"On this PC in {where}";
-                var damage = await app.Damage(closing.Token);
-                if (stage != Stage.Choosing) return;
-                c.Damaged = damage != null;
-                if (damage != null)
-                {
-                    // something is wrong with it: picked, so Install puts it right (settings and library stay as they are)
-                    c.SetPicked(true);
-                    c.Say($"{at}, but {damage}. Install repairs it.", Ink.Amber);
-                }
-                else c.Say(h.Version == null ? $"{at}. It keeps itself up to date."
-                    : Releases.Compare(h.Version, r.Version) >= 0 ? $"{at}, version {h.Version}, the newest."
-                    : $"{at}, version {h.Version}. It will update itself to {r.Version}.");
+                var damage = await Task.Run(app.Damage);
+                if (stage != Stage.Ready) return;
+                card.Damaged = damage != null;
+                // something wrong with it: Install puts it right (settings and library stay as they are)
+                if (damage != null) card.Say($"On this PC, but {damage}. Install repairs it.", Ink.Amber);
+                else card.Say(h.Version == null ? "On this PC. It keeps itself up to date."
+                    : Releases.Compare(h.Version, r.Version) >= 0 ? $"On this PC, version {h.Version}, the newest."
+                    : $"On this PC, version {h.Version}. It will update itself to {r.Version}.");
+                Refresh();
             }
             else
             {
-                // the Music Tool brings ffmpeg along when this PC has none
-                if (app is MusicTool tool && await Task.Run(MusicTool.FfmpegMissing))
-                {
-                    var pin = await tool.FfmpegPin(closing.Token);
-                    sized += $", plus ffmpeg ({Math.Round(pin.Size / 1048576.0):0} MB)";
-                }
-                if (stage != Stage.Choosing) return;
-                c.Say($"Version {r.Version}{sized}");
+                var size = r.Find(n => n.EndsWith("Setup.exe", StringComparison.OrdinalIgnoreCase))?.Size;
+                card.Say($"Version {r.Version}{(size is > 0 and var s ? $", {Math.Max(1, Math.Round(s / 1048576.0)):0} MB" : "")}");
             }
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
-            if (stage != Stage.Choosing) return;
-            c.Say(e is Problem ? e.Message : "Couldn't reach GitHub. Check your internet connection.", Ink.Red, "", ("Try again", () => { c.Say("Looking for the newest version"); _ = Describe(c); }));
+            if (stage != Stage.Ready) return;
+            card.Say(e is Problem ? e.Message : "Couldn't reach GitHub. Check your internet connection.", Ink.Red, "", ("Try again", () => { card.Say("Looking for the newest version"); _ = Describe(); }));
         }
         catch (OperationCanceledException) { return; }
-        c.FadeInInfo();
-    }
-
-    /// <summary>A short name for where the Music Tool lives when it is not where this puts it ("Documents"), or null.</summary>
-    static string? Where(string folder)
-    {
-        if (string.Equals(folder.TrimEnd('\\'), MusicTool.StandardFolder, StringComparison.OrdinalIgnoreCase)) return null;
-        var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        if (folder.StartsWith(local, StringComparison.OrdinalIgnoreCase)) return null;
-        foreach (var (special, name) in new[] { (Environment.SpecialFolder.MyDocuments, "Documents"), (Environment.SpecialFolder.DesktopDirectory, "Desktop"), (Environment.SpecialFolder.UserProfile, null as string) })
-        {
-            var p = Environment.GetFolderPath(special);
-            if (p.Length > 0 && folder.StartsWith(p + "\\", StringComparison.OrdinalIgnoreCase) || folder.Equals(p, StringComparison.OrdinalIgnoreCase))
-                return name ?? (folder.Length > p.Length ? folder[(p.Length + 1)..].Split('\\')[0] : null);
-        }
-        return System.IO.Path.GetFileName(folder.TrimEnd('\\'));
+        card.FadeInInfo();
     }
 
     async void Install()
     {
-        if (stage != Stage.Choosing) return;
-        var picked = cards.Where(c => c.Picked).ToList();
-        if (picked.Count == 0) return;
+        if (stage != Stage.Ready || primary == null) return;
         primary = null;
-        // an open app is named before anything starts, so nothing is left half done
-        var open = (await Task.Run(() => picked.Where(c => { c.App.Look(); return c.App.IsRunning(); }).ToList()));
-        if (open.Count > 0 && !testRun)
+        // an open Cadence is named before anything starts, so nothing is left half done
+        var open = await Task.Run(() => { app.Look(); return app.IsRunning(); });
+        if (open && !testRun)
         {
-            foreach (var c in open) c.Say($"Close {c.App.ShortName} first, then click Install.", Ink.Amber);
+            card.Say("Close Cadence first, then click Install.", Ink.Amber);
             Refresh();
             return;
         }
-        stage = Stage.Working;
-        foreach (var c in cards) { c.Lock(true); if (!c.Picked) c.Opacity = 0.45; }
-        foreach (var c in picked) _ = Run(c);
+        _ = Run();
     }
 
-    async Task Run(Card c)
+    async Task Run()
     {
-        Interlocked.Increment(ref running);
         stage = Stage.Working;
         SetHeading("Installing", "You can keep using your PC. This takes about a minute.");
         SetButton(null, null);
         SetFoot("");
-        c.Say("Starting", Ink.Soft);
+        card.Say("Starting", Ink.Soft);
         try
         {
             Directory.CreateDirectory(work);
-            var appWork = System.IO.Path.Combine(work, c.App.GetType().Name);
+            var appWork = System.IO.Path.Combine(work, nameof(Cadence));
             Directory.CreateDirectory(appWork);
-            var report = new Watch(c);
-            var version = await Task.Run(() => c.App.Install(appWork, report, testRun, closing.Token));
-            var note = c.App.Note is { } n ? " " + n : "";
-            if (testRun) c.Done($"Checked, version {version}.{note} Not installed (test run).");
-            else c.Done($"{(c.Damaged ? "Repaired" : "Installed")}, version {version}.{note}", ("Open", () => Open(c.App)));
-            Log.Write($"{c.App.Name}: done, {version}");
+            var version = await Task.Run(() => app.Install(appWork, card, testRun, closing.Token));
+            if (testRun) card.Done($"Checked, version {version}. Not installed (test run).");
+            else card.Done($"{(card.Damaged ? "Repaired" : "Installed")}, version {version}.", ("Open", Open));
+            Log.Write($"Cadence: done, {version}");
         }
         catch (OperationCanceledException) { return; }
         catch (NeedsClosing e)
         {
-            Log.Write($"{c.App.Name}: {e.Message}");
-            c.Failed(e.Message, true, ("Try again", () => Again(c)));
+            Log.Write($"Cadence: {e.Message}");
+            card.Failed(e.Message, true, ("Try again", Again));
         }
         catch (Problem p)
         {
-            Log.Write($"{c.App.Name}: {p.Message} {p.InnerException?.Message}");
+            Log.Write($"Cadence: {p.Message} {p.InnerException?.Message}");
             var acts = new List<(string, Action)>();
-            if (p.Retry) acts.Add(("Try again", () => Again(c)));
-            if (p.Page || !p.Retry) acts.Add(("Download page", () => Browse(c.App.Page)));
-            c.Failed(p.Message, false, acts.ToArray());
+            if (p.Retry) acts.Add(("Try again", Again));
+            if (p.Page || !p.Retry) acts.Add(("Download page", () => Browse(Cadence.Page)));
+            card.Failed(p.Message, false, acts.ToArray());
         }
         catch (Exception e)
         {
-            Log.Write($"{c.App.Name}: unexpected: {e}");
-            c.Failed("Something went wrong.", false, ("Try again", () => Again(c)), ("Download page", () => Browse(c.App.Page)));
+            Log.Write($"Cadence: unexpected: {e}");
+            card.Failed("Something went wrong.", false, ("Try again", Again), ("Download page", () => Browse(Cadence.Page)));
         }
-        finally
-        {
-            if (Interlocked.Decrement(ref running) == 0) Finish();
-        }
+        Finish();
     }
 
-    void Again(Card c)
+    void Again()
     {
-        if (closing.IsCancellationRequested) return;
-        c.Reset();
-        c.Lock(true);
-        _ = Run(c);
+        if (closing.IsCancellationRequested || stage == Stage.Working) return;
+        card.Reset();
+        _ = Run();
     }
 
     void Finish()
     {
         stage = Stage.Finished;
-        var picked = cards.Where(c => c.Picked).ToList();
-        var ok = picked.Count(c => c.Tag is "done");
-        var all = picked.Count;
-        if (ok == all)
+        if (card.Tag is "done")
         {
-            SetHeading("All set", testRun ? "Test run: downloaded and checked, nothing installed." : all == 1 ? "You'll find it in your Start menu." : "You'll find both in your Start menu.");
+            SetHeading("All set", testRun ? "Test run: downloaded and checked, nothing installed." : "You'll find it in your Start menu.");
             SetButton("Close", Close);
             SetFoot("");
         }
         else
         {
-            SetHeading(ok == 0 ? "Not installed" : "Almost there", ok == 0 ? (all == 1 ? "It didn't finish." : "Neither one finished.") : "One didn't finish. The other is installed.");
+            SetHeading("Not installed", "It didn't finish.");
             SetButton("Close", Close, quiet: true);
             SetFoot("", ("See what happened", () => Browse(Log.Path)));
         }
     }
 
-    sealed class Watch(Card c) : IReport
-    {
-        public void Downloading(long have, long? total) => c.Downloading(have, total);
-        public void Step(string words) => c.Step(words);
-        public void Label(string words) => c.Label(words);
-    }
-
-    static void Open(App app)
+    void Open()
     {
         if (app.Here is not { } h) return;
         try { Process.Start(new ProcessStartInfo(h.Exe) { UseShellExecute = true, WorkingDirectory = h.Folder })?.Dispose(); }
@@ -683,7 +562,7 @@ public sealed class MainWindow : Window
     void OnClosing(object? sender, WindowClosingEventArgs e)
     {
         // an installer that has started is never cut off halfway
-        if (stage == Stage.Working && cards.Any(c => c.Tag is "installing"))
+        if (stage == Stage.Working && card.Tag is "installing")
         {
             e.Cancel = true;
             SetHeading("Almost done", "Closing is safe in a moment.");

@@ -12,7 +12,7 @@
     <Product>Get Bradley's apps</Product>
     <AssemblyTitle>Get Bradley's apps</AssemblyTitle>
     <Company>BradChadley</Company>
-    <Version>1.0.1</Version>
+    <Version>1.1.0</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets/chooser.ico</ApplicationIcon>
     <Deterministic>true</Deterministic>

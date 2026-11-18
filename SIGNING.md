@@ -4,11 +4,11 @@ Nothing here is set up. This is the plan, for Bradley to decide on.
 
 ## Today, unsigned
 
-- **The chooser:** Windows shows "Windows protected your PC" the first time. The person clicks "More info", then "Run anyway".
-- **The apps it installs:** no second warning. The chooser downloads them itself, so Windows does not mark them as "from the internet". Each one is checked before it runs (see the README).
-- **Each app's own download from GitHub:** the same warning as the chooser.
+- **This installer:** Windows shows "Windows protected your PC" the first time. The person clicks "More info", then "Run anyway".
+- **Cadence, which it installs:** no second warning. The installer downloads it itself, so Windows does not mark it as "from the internet". It is checked before it runs (see the README).
+- **Cadence's own download from GitHub:** the same warning as this installer.
 
-So the chooser already cuts the warnings a person meets from two to one. Signing is what removes the last one.
+So this installer already cuts the warnings a person meets from two to one. Signing is what removes the last one.
 
 ## The service: Azure Artifact Signing
 
@@ -23,11 +23,10 @@ Microsoft's own signing service, the one chosen "for later". Microsoft holds the
 
 | Project | The change |
 |---|---|
-| **This chooser** | One step in `build.ps1` after the build: `signtool sign` with the dlib and a small JSON naming the account and profile, plus a time-stamp. The exe's checksum changes, so it is printed after signing. |
+| **This installer** | One step in `build.ps1` after the build: `signtool sign` with the dlib and a small JSON naming the account and profile, plus a time-stamp. The exe's checksum changes, so it is printed after signing. |
 | **Cadence** | Velopack signs everything (Setup.exe, Update.exe and Cadence's own files) when `vpk pack` is given the Artifact Signing options (`--azureTrustedSignFile <json>`). That is one line in `build-installer.ps1`. |
-| **Bradley's Music Tool** | `tools\release.ps1` signs `bradleys-music-tool.exe` right after the build, **before** the zip, the checksums and `update.json` are made, so they all describe the signed file. Its own update signature stays as it is: the two do different jobs. |
 
-The chooser needs no change for signed apps: the checksums it compares are published with each release.
+This installer needs no change for a signed Cadence: the checksums it compares are published with each release.
 
 ## What it does not do
 
@@ -38,5 +37,5 @@ The chooser needs no change for signed apps: the checksums it compares are publi
 
 1. Decide on the name on the certificate.
 2. Sign up and pass the identity check (his part, in the Azure portal).
-3. Sign this chooser first: it is the smallest change and the one file people are given.
-4. Then Cadence's next release, then the Music Tool's.
+3. Sign this installer first: it is the smallest change and the one file people are given.
+4. Then Cadence's next release.
