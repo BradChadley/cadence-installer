@@ -7,10 +7,16 @@
   Needs: the .NET 10 SDK and Visual Studio's "Desktop development with C++" (the native build uses its linker).
   Run:   pwsh -File build.ps1                       (finds dotnet on PATH, or names it with -Dotnet)
          pwsh -File build.ps1 -Check                (then downloads and checks Cadence into work\check, installing nothing)
+         pwsh -File build.ps1 -Unsigned             (a local trial: the exe is not signed)
+
+  Signing: the exe is signed with Azure Artifact Signing (Microsoft's signtool, its Artifact Signing client, and an
+  Azure CLI sign-in, az login). The account and profile are in work\signing.json, which is not in git; its shape is
+  Microsoft's metadata.json (Endpoint, CodeSigningAccountName, CertificateProfileName).
 #>
 param(
     [string]$Dotnet,
-    [switch]$Check
+    [switch]$Check,
+    [switch]$Unsigned
 )
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
@@ -45,6 +51,23 @@ if (Test-Path $words) { Get-Content $words | Where-Object { $_.Trim() } | ForEac
 foreach ($k in $private.Keys) {
     $label = $k -replace '\-?\d+$', ''
     if ($text.IndexOf($private[$k], [StringComparison]::OrdinalIgnoreCase) -ge 0) { throw "The exe names $label. It must not go to anyone like this." }
+}
+
+if (-not $Unsigned) {
+    $metadata = Join-Path $root 'work\signing.json'
+    if (-not (Test-Path $metadata)) { throw 'work\signing.json is missing: the signing account and profile go there (or build with -Unsigned for a trial).' }
+    $signtool = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe' -ErrorAction SilentlyContinue |
+        Sort-Object { [version]($_.Directory.Parent.Name) } -Descending | Select-Object -First 1
+    if (-not $signtool) { throw 'signtool.exe was not found: install the Windows SDK.' }
+    $dlib = Join-Path $env:LOCALAPPDATA 'Microsoft\MicrosoftArtifactSigningClientTools\Azure.CodeSigning.Dlib.dll'
+    if (-not (Test-Path $dlib)) { throw 'The Artifact Signing client was not found: winget install --id Microsoft.Azure.ArtifactSigningClientTools -e' }
+    $cli = Join-Path $env:ProgramFiles 'Microsoft SDKs\Azure\CLI2\wbin'
+    if (-not (Get-Command az -ErrorAction SilentlyContinue) -and (Test-Path (Join-Path $cli 'az.cmd'))) { $env:PATH = "$cli;$env:PATH" }
+    & $signtool.FullName sign /fd SHA256 /tr 'http://timestamp.acs.microsoft.com' /td SHA256 /dlib $dlib /dmdf $metadata $exe | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw "Signing failed (signtool exit $LASTEXITCODE). Is 'az login' still signed in?" }
+    $signature = Get-AuthenticodeSignature -LiteralPath $exe
+    if ($signature.Status -ne 'Valid') { throw "The signed exe does not verify: $($signature.Status)." }
+    "Signed by $($signature.SignerCertificate.Subject -replace ',.*', '')"
 }
 
 $size = (Get-Item $exe).Length

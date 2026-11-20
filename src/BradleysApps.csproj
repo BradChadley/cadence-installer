@@ -13,7 +13,7 @@
     <AssemblyTitle>Cadence Installer</AssemblyTitle>
     <Description>Installs Cadence, Bradley's music player</Description>
     <Company>BradChadley</Company>
-    <Version>1.1.0</Version>
+    <Version>1.1.1</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets/chooser.ico</ApplicationIcon>
     <Deterministic>true</Deterministic>
