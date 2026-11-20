@@ -6,7 +6,7 @@ One small file to give people. It installs Cadence, Bradley's music player, with
 
 It used to be called Get Bradley's apps. Old links still work: each release attaches the same file under both names, `Cadence-Installer.exe` and the old `Get-Bradleys-apps.exe`, and its `SHA256SUMS.txt` lists both. GitHub follows the repository's old name to the new one, but not a file's old name, so the old file name stays on every release. The link to give people is the one above.
 
-The file is not signed yet, so Windows says "Windows protected your PC" the first time. Click "More info", then "Run anyway".
+From 1.1.1 the file is signed (publisher: Nick Marrone, through Microsoft's Artifact Signing). Windows may still say "Windows protected your PC" for the first downloads while it learns to trust a new signer: click "More info", then "Run anyway".
 
 **Bradley's Music Tool is part of Cadence now.** Its recommendations, album downloads and library repairs live in Cadence from version 0.30.0, so this installs only Cadence. Versions 1.0.x of this file also offered the Music Tool. For someone who has it, this offers to remove the old copy (a box, ticked to start with) once Cadence is installed and checked.
 
